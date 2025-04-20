@@ -1,462 +1,381 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
 
 const AdminDashboard = () => {
-  const [user, setUser] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('dashboard');
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [currentPassword, setCurrentPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [passwordMessage, setPasswordMessage] = useState('');
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [adminInfo, setAdminInfo] = useState(null);
+  const [pagination, setPagination] = useState({
+    currentPage: 1,
+    totalPages: 1,
+    totalUsers: 0
+  });
+  const [searchQuery, setSearchQuery] = useState('');
   const navigate = useNavigate();
 
   useEffect(() => {
-    const fetchUserData = async () => {
+    // Check if user is logged in and is admin
+    const token = localStorage.getItem('token');
+    
+    if (!token) {
+      navigate('/login');
+      return;
+    }
+    
+    // Get admin info
+    try {
+      const adminUser = JSON.parse(localStorage.getItem('adminUser'));
+      setAdminInfo(adminUser);
+    } catch (e) {
+      console.error("Error parsing admin user data");
+    }
+    
+    fetchUsers(1);
+  }, [navigate]);
+
+  const fetchUsers = async (page = 1, limit = 10, search = searchQuery) => {
+    setLoading(true);
+    
+    try {
       const token = localStorage.getItem('token');
+      
       if (!token) {
         navigate('/login');
         return;
       }
-
-      try {
-        const response = await axios.get('https://backend-4bet.vercel.app/admin-data', {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        setUser(response.data);
-      } catch (error) {
-        console.error('Error fetching user data:', error);
-        // If token is invalid, redirect to login
-        if (error.response?.status === 401) {
-          localStorage.removeItem('token');
-          navigate('/login');
+      
+      const config = {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        params: {
+          page,
+          limit,
+          sortField: 'createdAt',
+          sortDirection: 'desc'
         }
-      } finally {
-        setIsLoading(false);
+      };
+      
+      // Add search query if provided
+      if (search) {
+        config.params.search = search;
       }
-    };
+      
+      const response = await axios.get('https://backend-4bet.vercel.app/usersdetails', config);
+      
+      setUsers(response.data.users);
+      setPagination({
+        currentPage: response.data.currentPage,
+        totalPages: response.data.totalPages,
+        totalUsers: response.data.totalUsers
+      });
+      
+    } catch (err) {
+      console.error('Error fetching users:', err);
+      
+      if (err.response?.status === 401 || err.response?.status === 403) {
+        localStorage.removeItem('token');
+        localStorage.removeItem('adminUser');
+        navigate('/login');
+      } else {
+        setError('Failed to load users data');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    fetchUserData();
-  }, [navigate]);
+  const handleSearch = (e) => {
+    e.preventDefault();
+    fetchUsers(1, 10, searchQuery);
+  };
 
   const handleLogout = () => {
     localStorage.removeItem('token');
+    localStorage.removeItem('adminUser');
     navigate('/login');
   };
 
-  const updatePassword = async (e) => {
-    e.preventDefault();
-    setPasswordMessage('');
+  const handlePageChange = (page) => {
+    fetchUsers(page);
+  };
 
-    if (newPassword !== confirmPassword) {
-      setPasswordMessage('New passwords do not match');
-      return;
-    }
-
-    try {
-      const token = localStorage.getItem('token');
-      await axios.post(
-        'https://backend-4bet.vercel.app/update-password',
-        {
-          currentPassword,
-          newPassword
-        },
-        {
-          headers: { 'Authorization': `Bearer ${token}` }
-        }
+  // Generate pagination buttons
+  const renderPagination = () => {
+    const pages = [];
+    for (let i = 1; i <= pagination.totalPages; i++) {
+      pages.push(
+        <button
+          key={i}
+          onClick={() => handlePageChange(i)}
+          style={{
+            ...styles.paginationButton,
+            ...(pagination.currentPage === i ? styles.activePage : {})
+          }}
+        >
+          {i}
+        </button>
       );
-      
-      setPasswordMessage('Password updated successfully');
-      setCurrentPassword('');
-      setNewPassword('');
-      setConfirmPassword('');
-    } catch (error) {
-      setPasswordMessage(error.response?.data?.message || 'Failed to update password');
     }
+    return pages;
   };
-
-  const navigateToUserDetails = () => {
-    navigate('/user-details');
-  };
-
-  const toggleSidebar = () => {
-    setSidebarOpen(!sidebarOpen);
-  };
-
-  if (isLoading) {
-    return (
-      <div style={styles.loadingContainer}>
-        <p>Loading...</p>
-      </div>
-    );
-  }
 
   return (
     <div style={styles.container}>
-      {/* Mobile menu button */}
-      <button 
-        style={styles.menuButton} 
-        onClick={toggleSidebar}
-      >
-        {sidebarOpen ? '✕' : '☰'}
-      </button>
-
-      {/* Sidebar */}
-      <div style={{
-        ...styles.sidebar,
-        transform: sidebarOpen ? 'translateX(0)' : 'translateX(-100%)'
-      }}>
-        <div style={styles.sidebarHeader}>
-          <h3 style={styles.sidebarTitle}>Admin Panel</h3>
-          <button 
-            style={styles.closeSidebar}
-            onClick={() => setSidebarOpen(false)}
-          >
-            ✕
-          </button>
-        </div>
-
-        <div style={styles.userInfo}>
-          <div style={styles.avatar}>
-            {user?.name?.charAt(0).toUpperCase() || 'A'}
-          </div>
-          <div style={styles.userDetails}>
-            <p style={styles.userName}>{user?.name || 'Admin'}</p>
-            <p style={styles.userEmail}>{user?.email || 'admin@example.com'}</p>
-          </div>
-        </div>
-
-        <nav style={styles.nav}>
-          <button 
-            style={{
-              ...styles.navButton,
-              backgroundColor: activeTab === 'dashboard' ? '#2563eb' : 'transparent',
-              color: activeTab === 'dashboard' ? 'white' : '#1f2937'
-            }}
-            onClick={() => setActiveTab('dashboard')}
-          >
-            Dashboard
-          </button>
-          <button 
-            style={{
-              ...styles.navButton,
-              backgroundColor: activeTab === 'userDetails' ? '#2563eb' : 'transparent',
-              color: activeTab === 'userDetails' ? 'white' : '#1f2937'
-            }}
-            onClick={navigateToUserDetails}
-          >
-            User Details
-          </button>
-    
-     
-        </nav>
-
-        <button 
-          style={styles.logoutButton}
-          onClick={handleLogout}
-        >
-          Logout
-        </button>
-      </div>
-
-      {/* Main content */}
-      <div style={styles.content}>
-        {activeTab === 'dashboard' && (
-          <div style={styles.dashboard}>
-            <h1 style={styles.dashboardTitle}>Welcome to Admin Dashboard 👋</h1>
-          
+      <div style={styles.header}>
+        <h1 style={styles.title}>Admin Dashboard</h1>
+        {adminInfo && (
+          <div style={styles.userInfo}>
+            <p style={styles.welcomeText}>Welcome, {adminInfo.name}</p>
+            <button onClick={handleLogout} style={styles.logoutButton}>
+              Logout
+            </button>
           </div>
         )}
+      </div>
 
-        {activeTab === 'password' && (
-          <div style={styles.dashboard}>
-            <h1 style={styles.dashboardTitle}>Change Password</h1>
-            <div style={styles.passwordForm}>
-              {passwordMessage && (
-                <p style={{
-                  ...styles.message,
-                  color: passwordMessage.includes('successfully') ? '#16a34a' : '#dc2626'
-                }}>
-                  {passwordMessage}
-                </p>
+      <div style={styles.searchContainer}>
+        <form onSubmit={handleSearch} style={styles.searchForm}>
+          <input
+            type="text"
+            placeholder="Search by email, mobile, or problem..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            style={styles.searchInput}
+          />
+          <button type="submit" style={styles.searchButton}>
+            Search
+          </button>
+        </form>
+      </div>
+
+      <div style={styles.stats}>
+        <div style={styles.statCard}>
+          <h3 style={styles.statTitle}>Total Users</h3>
+          <p style={styles.statValue}>{pagination.totalUsers}</p>
+        </div>
+      </div>
+
+      {error && <p style={styles.error}>{error}</p>}
+      
+      {loading ? (
+        <div style={styles.loading}>Loading users data...</div>
+      ) : (
+        <div style={styles.tableContainer}>
+          <table style={styles.table}>
+            <thead>
+              <tr>
+                <th style={styles.th}>Email</th>
+                <th style={styles.th}>Mobile Number</th>
+                <th style={styles.th}>Withdrawal Amount</th>
+                <th style={styles.th}>Problem</th>
+              </tr>
+            </thead>
+            <tbody>
+              {users.length > 0 ? (
+                users.map((user) => (
+                  <tr key={user._id} style={styles.tr}>
+                    <td style={styles.td}>{user.email}</td>
+                    <td style={styles.td}>{user.mobileNumber}</td>
+                    <td style={styles.td}>{user.withdrawalAmount}</td>
+                    <td style={styles.td}>{user.problem}</td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan="4" style={styles.noData}>
+                    No users found
+                  </td>
+                </tr>
               )}
-              <form onSubmit={updatePassword}>
-                <div style={styles.formGroup}>
-                  <label style={styles.label}>Current Password</label>
-                  <input
-                    type="password"
-                    style={styles.input}
-                    value={currentPassword}
-                    onChange={(e) => setCurrentPassword(e.target.value)}
-                    required
-                  />
-                </div>
-                <div style={styles.formGroup}>
-                  <label style={styles.label}>New Password</label>
-                  <input
-                    type="password"
-                    style={styles.input}
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    required
-                  />
-                </div>
-                <div style={styles.formGroup}>
-                  <label style={styles.label}>Confirm New Password</label>
-                  <input
-                    type="password"
-                    style={styles.input}
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    required
-                  />
-                </div>
-                <button type="submit" style={styles.saveButton}>
-                  Update Password
-                </button>
-              </form>
+            </tbody>
+          </table>
+          
+          {pagination.totalPages > 1 && (
+            <div style={styles.pagination}>
+              <button
+                onClick={() => handlePageChange(pagination.currentPage - 1)}
+                disabled={pagination.currentPage === 1}
+                style={{
+                  ...styles.paginationButton,
+                  ...(pagination.currentPage === 1 ? styles.disabledButton : {})
+                }}
+              >
+                Previous
+              </button>
+              
+              {renderPagination()}
+              
+              <button
+                onClick={() => handlePageChange(pagination.currentPage + 1)}
+                disabled={pagination.currentPage === pagination.totalPages}
+                style={{
+                  ...styles.paginationButton,
+                  ...(pagination.currentPage === pagination.totalPages ? styles.disabledButton : {})
+                }}
+              >
+                Next
+              </button>
             </div>
-          </div>
-        )}
-
-        {activeTab === 'settings' && (
-          <div style={styles.dashboard}>
-            <h1 style={styles.dashboardTitle}>Settings</h1>
-            <div style={styles.settingsContent}>
-              <p>Settings page content will go here.</p>
-            </div>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };
 
-// Internal CSS
 const styles = {
   container: {
-    display: 'flex',
-    minHeight: '100vh',
-    fontFamily: 'Arial, sans-serif',
-    position: 'relative',
-  },
-  loadingContainer: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: '100vh',
-  },
-  menuButton: {
-    position: 'fixed',
-    top: '20px',
-    left: '20px',
-    zIndex: 100,
-    background: '#2563eb',
-    color: 'white',
-    border: 'none',
-    borderRadius: '5px',
-    width: '40px',
-    height: '40px',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    fontSize: '18px',
-    cursor: 'pointer',
-    transition: 'background-color 0.3s',
-    '@media (min-width: 768px)': {
-      display: 'none',
-    }
-  },
-  sidebar: {
-    width: '280px',
-    backgroundColor: 'white',
-    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
     padding: '20px',
-    display: 'flex',
-    flexDirection: 'column',
-    height: '100vh',
-    position: 'fixed',
-    top: 0,
-    left: 0,
-    zIndex: 50,
-    transition: 'transform 0.3s ease',
-    overflowY: 'auto',
-    '@media (max-width: 768px)': {
-      width: '240px'
-    }
+    maxWidth: '1200px',
+    margin: '0 auto',
+    fontFamily: 'Arial, sans-serif',
   },
-  sidebarHeader: {
+  header: {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: '30px',
+    borderBottom: '1px solid #e5e7eb',
+    paddingBottom: '15px',
   },
-  sidebarTitle: {
-    fontSize: '20px',
+  title: {
+    fontSize: '28px',
     fontWeight: 'bold',
-    color: '#1f2937',
-    margin: 0,
-  },
-  closeSidebar: {
-    display: 'none',
-    background: 'transparent',
-    border: 'none',
-    color: '#6b7280',
-    fontSize: '18px',
-    cursor: 'pointer',
-    '@media (max-width: 768px)': {
-      display: 'block',
-    }
+    color: '#333',
+    margin: '0',
   },
   userInfo: {
     display: 'flex',
     alignItems: 'center',
-    padding: '15px 0',
-    borderBottom: '1px solid #e5e7eb',
-    marginBottom: '20px',
+    gap: '15px',
   },
-  avatar: {
-    width: '50px',
-    height: '50px',
-    borderRadius: '50%',
-    backgroundColor: '#2563eb',
-    color: 'white',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    fontSize: '20px',
-    fontWeight: 'bold',
-    marginRight: '10px',
-  },
-  userDetails: {
-    overflow: 'hidden',
-  },
-  userName: {
-    fontWeight: 'bold',
-    margin: '0 0 5px 0',
+  welcomeText: {
+    margin: '0',
     fontSize: '16px',
-    color: '#1f2937',
-  },
-  userEmail: {
-    margin: 0,
-    fontSize: '14px',
-    color: '#6b7280',
-    textOverflow: 'ellipsis',
-    overflow: 'hidden', 
-    whiteSpace: 'nowrap',
-    maxWidth: '180px',
-  },
-  nav: {
-    display: 'flex',
-    flexDirection: 'column',
-    flex: 1,
-  },
-  navButton: {
-    border: 'none',
-    textAlign: 'left',
-    padding: '12px 15px',
-    margin: '2px 0',
-    borderRadius: '5px',
-    fontSize: '16px',
-    cursor: 'pointer',
-    transition: 'all 0.2s',
   },
   logoutButton: {
-    marginTop: 'auto',
-    padding: '12px',
     backgroundColor: '#ef4444',
     color: 'white',
     border: 'none',
-    borderRadius: '5px',
-    fontWeight: 'bold',
+    padding: '8px 16px',
+    borderRadius: '6px',
     cursor: 'pointer',
-    transition: 'background-color 0.3s',
-  },
-  content: {
-    flex: 1,
-    padding: '20px',
-    paddingLeft: '300px',
-    backgroundColor: '#f9fafb',
-    '@media (max-width: 768px)': {
-      paddingLeft: '20px',
-    }
-  },
-  dashboard: {
-    maxWidth: '1200px',
-    margin: '0 auto',
-  },
-  dashboardTitle: {
-    fontSize: '28px',
-    fontWeight: 'bold',
-    marginBottom: '30px',
-    color: '#1f2937',
-  },
-  dashboardContent: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-    gap: '20px',
-    '@media (max-width: 640px)': {
-      gridTemplateColumns: '1fr',
-    }
-  },
-  statsCard: {
-    backgroundColor: 'white',
-    borderRadius: '8px',
-    padding: '20px',
-    boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)',
-  },
-  statsNumber: {
-    fontSize: '24px',
-    fontWeight: 'bold',
-    color: '#2563eb',
-    margin: '10px 0 0 0',
-  },
-  passwordForm: {
-    maxWidth: '500px',
-    backgroundColor: 'white',
-    padding: '20px',
-    borderRadius: '8px',
-    boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)',
-  },
-  formGroup: {
-    marginBottom: '15px',
-  },
-  label: {
-    display: 'block',
-    marginBottom: '5px',
     fontWeight: '500',
-    color: '#374151',
   },
-  input: {
-    width: '100%',
-    padding: '10px',
+  searchContainer: {
+    marginBottom: '20px',
+  },
+  searchForm: {
+    display: 'flex',
+    gap: '10px',
+  },
+  searchInput: {
+    padding: '10px 12px',
+    borderRadius: '6px',
     border: '1px solid #d1d5db',
-    borderRadius: '5px',
     fontSize: '16px',
+    flexGrow: '1',
   },
-  saveButton: {
-    backgroundColor: '#2563eb',
+  searchButton: {
+    backgroundColor: '#3b82f6',
     color: 'white',
     border: 'none',
-    padding: '10px 15px',
-    borderRadius: '5px',
+    padding: '10px 16px',
+    borderRadius: '6px',
     cursor: 'pointer',
-    fontWeight: '500',
-    marginTop: '10px',
   },
-  message: {
-    padding: '10px',
-    borderRadius: '5px',
-    marginBottom: '15px',
-    fontSize: '14px',
+  stats: {
+    display: 'flex',
+    gap: '20px',
+    marginBottom: '30px',
   },
-  settingsContent: {
-    backgroundColor: 'white',
+  statCard: {
+    backgroundColor: '#f9fafb',
     padding: '20px',
     borderRadius: '8px',
-    boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)',
+    border: '1px solid #e5e7eb',
+    minWidth: '150px',
+  },
+  statTitle: {
+    margin: '0',
+    fontSize: '14px',
+    color: '#4b5563',
+    marginBottom: '5px',
+  },
+  statValue: {
+    margin: '0',
+    fontSize: '24px',
+    fontWeight: 'bold',
+    color: '#111827',
+  },
+  tableContainer: {
+    overflowX: 'auto',
+    borderRadius: '8px',
+    border: '1px solid #e5e7eb',
+  },
+  table: {
+    width: '100%',
+    borderCollapse: 'collapse',
+  },
+  th: {
+    textAlign: 'left',
+    padding: '12px 16px',
+    backgroundColor: '#f9fafb',
+    borderBottom: '1px solid #e5e7eb',
+    color: '#4b5563',
+    fontSize: '14px',
+    fontWeight: '600',
+  },
+  tr: {
+    borderBottom: '1px solid #e5e7eb',
+  },
+  td: {
+    padding: '12px 16px',
+    color: '#111827',
+    fontSize: '14px',
+  },
+  noData: {
+    textAlign: 'center',
+    padding: '30px',
+    color: '#6b7280',
+  },
+  pagination: {
+    display: 'flex',
+    justifyContent: 'center',
+    gap: '5px',
+    padding: '15px 0',
+  },
+  paginationButton: {
+    padding: '6px 12px',
+    border: '1px solid #d1d5db',
+    backgroundColor: 'white',
+    borderRadius: '6px',
+    cursor: 'pointer',
+    fontSize: '14px',
+  },
+  activePage: {
+    backgroundColor: '#3b82f6',
+    color: 'white',
+    borderColor: '#3b82f6',
+  },
+  disabledButton: {
+    opacity: '0.5',
+    cursor: 'not-allowed',
+  },
+  error: {
+    color: '#dc2626',
+    backgroundColor: '#fee2e2',
+    padding: '10px 15px',
+    borderRadius: '6px',
+    marginBottom: '20px',
+  },
+  loading: {
+    textAlign: 'center',
+    padding: '30px',
+    color: '#6b7280',
   }
 };
 
