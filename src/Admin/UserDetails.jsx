@@ -18,7 +18,7 @@ function UserDetails() {
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      const res = await axios.get('https://backend-4bet.vercel.app/api/usersdetails', {
+      const res = await axios.get('https://backend-4bet.vercel.app/usersdetails', {
         params: {
           page: currentPage,
           limit: usersPerPage,
