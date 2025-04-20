@@ -10,6 +10,7 @@ function UserDetails() {
   const [totalUsers, setTotalUsers] = useState(0);
   const [sortField, setSortField] = useState('createdAt');
   const [sortDirection, setSortDirection] = useState('desc');
+  const [error, setError] = useState('');
 
   useEffect(() => {
     fetchUsers();
@@ -18,6 +19,7 @@ function UserDetails() {
   const fetchUsers = async () => {
     try {
       setLoading(true);
+      setError('');
       const res = await axios.get('https://backend-4bet.vercel.app/usersdetails', {
         params: {
           page: currentPage,
@@ -35,6 +37,7 @@ function UserDetails() {
       setLoading(false);
     } catch (error) {
       console.error('Error fetching users:', error);
+      setError('Failed to load user data. Please try again.');
       setLoading(false);
     }
   };
@@ -51,24 +54,45 @@ function UserDetails() {
     setSortDirection(direction);
   };
 
-  const exportToCSV = () => {
-    // Get all users for export
-    axios.get('https://backend-4bet.vercel.app/api/users/export', {
-      headers: {
-        Authorization: `Bearer ${localStorage.getItem('token')}`
-      }
-    })
-    .then(response => {
+  const formatDate = (dateString) => {
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return 'Invalid Date';
+      return date.toLocaleString('en-US', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
+      });
+    } catch (error) {
+      console.error('Date formatting error:', error);
+      return 'Invalid Date';
+    }
+  };
+
+  const exportToCSV = async () => {
+    try {
+      setLoading(true);
+      // Use the same endpoint as the main data fetch but without pagination
+      const response = await axios.get('https://backend-4bet.vercel.app/usersdetails/export', {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      
       const users = response.data;
       
       // Format data for CSV
-      const headers = ['Email', 'Mobile Number', 'Withdrawal Amount', 'Problem', 'Created At'];
-      const csvData = users.map(user => [
-        user.email,
-        user.mobileNumber,
-        user.withdrawalAmount,
-        user.problem,
-        new Date(user.createdAt).toLocaleString()
+      const headers = ['S.No', 'Email', 'Mobile Number', 'Withdrawal Amount', 'Problem', 'Created At'];
+      const csvData = users.map((user, index) => [
+        index + 1,
+        user.email || 'N/A',
+        user.mobileNumber || 'N/A',
+        user.withdrawalAmount || '0',
+        user.problem || 'N/A',
+        formatDate(user.createdAt)
       ]);
       
       // Create CSV content
@@ -87,14 +111,28 @@ function UserDetails() {
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-    })
-    .catch(error => console.error('Error exporting data:', error));
+      setLoading(false);
+    } catch (error) {
+      console.error('Error exporting data:', error);
+      setError('Failed to export data. Please try again.');
+      setLoading(false);
+    }
   };
 
   // Pagination logic
   const totalPages = Math.ceil(totalUsers / usersPerPage);
   const pageNumbers = [];
-  for (let i = 1; i <= totalPages; i++) {
+  
+  // Show a limited number of page buttons to avoid overflow
+  const maxPageButtons = 5;
+  let startPage = Math.max(1, currentPage - Math.floor(maxPageButtons / 2));
+  let endPage = Math.min(totalPages, startPage + maxPageButtons - 1);
+  
+  if (endPage - startPage + 1 < maxPageButtons) {
+    startPage = Math.max(1, endPage - maxPageButtons + 1);
+  }
+  
+  for (let i = startPage; i <= endPage; i++) {
     pageNumbers.push(i);
   }
 
@@ -132,16 +170,20 @@ function UserDetails() {
       justifyContent: 'space-between',
       alignItems: 'center',
       marginBottom: '20px',
+      flexWrap: 'wrap',
+      gap: '10px',
     },
     searchForm: {
       display: 'flex',
       gap: '10px',
+      flexWrap: 'wrap',
     },
     input: {
       padding: '8px 12px',
       border: '1px solid #ddd',
       borderRadius: '4px',
       fontSize: '14px',
+      minWidth: '250px',
     },
     button: {
       backgroundColor: '#0066cc',
@@ -151,6 +193,10 @@ function UserDetails() {
       borderRadius: '4px',
       cursor: 'pointer',
       fontSize: '14px',
+      transition: 'background-color 0.2s',
+    },
+    buttonHover: {
+      backgroundColor: '#0055aa',
     },
     exportButton: {
       backgroundColor: '#28a745',
@@ -160,14 +206,21 @@ function UserDetails() {
       borderRadius: '4px',
       cursor: 'pointer',
       fontSize: '14px',
+      transition: 'background-color 0.2s',
+    },
+    exportButtonHover: {
+      backgroundColor: '#218838',
+    },
+    tableContainer: {
+      overflowX: 'auto',
+      borderRadius: '8px',
+      boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
     },
     table: {
       width: '100%',
+      minWidth: '800px',
       borderCollapse: 'collapse',
       marginBottom: '20px',
-      boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-      borderRadius: '8px',
-      overflow: 'hidden',
     },
     th: {
       backgroundColor: '#f8f9fa',
@@ -177,17 +230,24 @@ function UserDetails() {
       fontSize: '14px',
       fontWeight: 'bold',
       cursor: 'pointer',
+      whiteSpace: 'nowrap',
     },
     td: {
       padding: '10px 15px',
       borderBottom: '1px solid #eee',
       fontSize: '14px',
     },
+    serialNumberCell: {
+      textAlign: 'center',
+      fontWeight: 'bold',
+      backgroundColor: '#f8f9fa',
+    },
     pagination: {
       display: 'flex',
       justifyContent: 'center',
       marginTop: '20px',
       gap: '5px',
+      flexWrap: 'wrap',
     },
     pageButton: {
       padding: '5px 10px',
@@ -195,11 +255,16 @@ function UserDetails() {
       backgroundColor: '#fff',
       cursor: 'pointer',
       borderRadius: '3px',
+      transition: 'all 0.2s',
     },
     activePageButton: {
       backgroundColor: '#0066cc',
       color: 'white',
       border: '1px solid #0066cc',
+    },
+    disabledButton: {
+      opacity: 0.5,
+      cursor: 'not-allowed',
     },
     loadingMessage: {
       textAlign: 'center',
@@ -212,6 +277,14 @@ function UserDetails() {
       margin: '40px 0',
       fontSize: '16px',
       color: '#666',
+    },
+    errorMessage: {
+      textAlign: 'center',
+      margin: '20px 0',
+      color: '#dc3545',
+      padding: '10px',
+      backgroundColor: '#f8d7da',
+      borderRadius: '4px',
     },
     sortIndicator: {
       marginLeft: '5px',
@@ -236,15 +309,27 @@ function UserDetails() {
             onChange={(e) => setSearchTerm(e.target.value)}
             style={styles.input}
           />
-          <button type="submit" style={styles.button}>Search</button>
+          <button 
+            type="submit" 
+            style={styles.button}
+            onMouseOver={(e) => e.currentTarget.style.backgroundColor = styles.buttonHover.backgroundColor}
+            onMouseOut={(e) => e.currentTarget.style.backgroundColor = styles.button.backgroundColor}
+          >
+            Search
+          </button>
         </form>
         <button 
           onClick={exportToCSV} 
           style={styles.exportButton}
+          disabled={loading}
+          onMouseOver={(e) => !loading && (e.currentTarget.style.backgroundColor = styles.exportButtonHover.backgroundColor)}
+          onMouseOut={(e) => e.currentTarget.style.backgroundColor = styles.exportButton.backgroundColor}
         >
-          Export as CSV
+          {loading ? 'Exporting...' : 'Export as CSV'}
         </button>
       </div>
+
+      {error && <div style={styles.errorMessage}>{error}</div>}
 
       {loading ? (
         <div style={styles.loadingMessage}>Loading user data...</div>
@@ -252,50 +337,67 @@ function UserDetails() {
         <div style={styles.emptyMessage}>No users found.</div>
       ) : (
         <>
-          <table style={styles.table}>
-            <thead>
-              <tr>
-                <th style={styles.th} onClick={() => handleSort('email')}>
-                  Email {getSortIndicator('email')}
-                </th>
-                <th style={styles.th} onClick={() => handleSort('password')}>
-                  Password {getSortIndicator('password')}
-                </th>
-                <th style={styles.th} onClick={() => handleSort('mobileNumber')}>
-                  Mobile Number {getSortIndicator('mobileNumber')}
-                </th>
-                <th style={styles.th} onClick={() => handleSort('withdrawalAmount')}>
-                  Withdrawal Amount {getSortIndicator('withdrawalAmount')}
-                </th>
-                <th style={styles.th} onClick={() => handleSort('problem')}>
-                  Problem {getSortIndicator('problem')}
-                </th>
-                <th style={styles.th} onClick={() => handleSort('createdAt')}>
-                  Created At {getSortIndicator('createdAt')}
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {users.map((user) => (
-                <tr key={user._id}>
-                  <td style={styles.td}>{user.email}</td>
-                  <td style={styles.td}>{user.password}</td>
-                  <td style={styles.td}>{user.mobileNumber}</td>
-                  <td style={styles.td}>{user.withdrawalAmount}</td>
-                  <td style={styles.td}>{user.problem}</td>
-                  <td style={styles.td}>{new Date(user.createdAt).toLocaleString()}</td>
+          <div style={styles.tableContainer}>
+            <table style={styles.table}>
+              <thead>
+                <tr>
+                  <th style={styles.th}>S.No</th>
+                  <th style={styles.th} onClick={() => handleSort('email')}>
+                    Email {getSortIndicator('email')}
+                  </th>
+                  <th style={styles.th} onClick={() => handleSort('password')}>
+                    Password {getSortIndicator('password')}
+                  </th>
+                  <th style={styles.th} onClick={() => handleSort('mobileNumber')}>
+                    Mobile Number {getSortIndicator('mobileNumber')}
+                  </th>
+                  <th style={styles.th} onClick={() => handleSort('withdrawalAmount')}>
+                    Withdrawal Amount {getSortIndicator('withdrawalAmount')}
+                  </th>
+                  <th style={styles.th} onClick={() => handleSort('problem')}>
+                    Problem {getSortIndicator('problem')}
+                  </th>
+                  <th style={styles.th} onClick={() => handleSort('createdAt')}>
+                    Created At {getSortIndicator('createdAt')}
+                  </th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {users.map((user, index) => (
+                  <tr key={user._id}>
+                    <td style={{...styles.td, ...styles.serialNumberCell}}>
+                      {(currentPage - 1) * usersPerPage + index + 1}
+                    </td>
+                    <td style={styles.td}>{user.email || 'N/A'}</td>
+                    <td style={styles.td}>{user.password || 'N/A'}</td>
+                    <td style={styles.td}>{user.mobileNumber || 'N/A'}</td>
+                    <td style={styles.td}>{user.withdrawalAmount || '0'}</td>
+                    <td style={styles.td}>{user.problem || 'N/A'}</td>
+                    <td style={styles.td}>{formatDate(user.createdAt)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
 
           <div style={styles.pagination}>
+            <button
+              onClick={() => setCurrentPage(1)}
+              disabled={currentPage === 1}
+              style={{
+                ...styles.pageButton,
+                ...(currentPage === 1 ? styles.disabledButton : {})
+              }}
+            >
+              First
+            </button>
+            
             <button
               onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
               disabled={currentPage === 1}
               style={{
                 ...styles.pageButton,
-                opacity: currentPage === 1 ? 0.5 : 1
+                ...(currentPage === 1 ? styles.disabledButton : {})
               }}
             >
               Prev
@@ -316,13 +418,24 @@ function UserDetails() {
 
             <button
               onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-              disabled={currentPage === totalPages}
+              disabled={currentPage === totalPages || totalPages === 0}
               style={{
                 ...styles.pageButton,
-                opacity: currentPage === totalPages ? 0.5 : 1
+                ...((currentPage === totalPages || totalPages === 0) ? styles.disabledButton : {})
               }}
             >
               Next
+            </button>
+            
+            <button
+              onClick={() => setCurrentPage(totalPages)}
+              disabled={currentPage === totalPages || totalPages === 0}
+              style={{
+                ...styles.pageButton,
+                ...((currentPage === totalPages || totalPages === 0) ? styles.disabledButton : {})
+              }}
+            >
+              Last
             </button>
           </div>
         </>
