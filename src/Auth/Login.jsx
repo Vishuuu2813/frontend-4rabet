@@ -6,27 +6,51 @@ const AdminLogin = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setLoading(true);
     
     try {
+      console.log('Attempting login with:', { email });
+      
       const res = await axios.post('https://backend-4bet.vercel.app/admin/login', {
         email,
         password
       });
+      
+      console.log('Login response:', res.data);
+      
+      if (!res.data || !res.data.token) {
+        throw new Error('No token received from server');
+      }
 
       // Store token and redirect
       localStorage.setItem('token', res.data.token);
-      navigate('/admin');
+      console.log('Token stored, redirecting to /admin');
+      
+      // Add a slight delay to ensure state updates complete
+      setTimeout(() => {
+        navigate('/admin');
+      }, 100);
+      
     } catch (err) {
+      console.error('Login error:', err);
+      
       if (err.response?.status === 403) {
         setError('Access denied: Not an admin ❌');
+      } else if (err.response?.data?.message) {
+        setError(err.response.data.message);
+      } else if (err.message) {
+        setError(err.message);
       } else {
-        setError(err.response?.data?.message || 'Login failed ❌');
+        setError('Login failed. Please check your connection ❌');
       }
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -52,8 +76,12 @@ const AdminLogin = () => {
             onChange={(e) => setPassword(e.target.value)}
             required
           />
-          <button type="submit" style={styles.button}>
-            Login
+          <button 
+            type="submit" 
+            style={loading ? {...styles.button, ...styles.buttonDisabled} : styles.button}
+            disabled={loading}
+          >
+            {loading ? 'Logging in...' : 'Login'}
           </button>
         </form>
       </div>
@@ -114,6 +142,10 @@ const styles = {
     fontWeight: '500',
     cursor: 'pointer',
     transition: 'background-color 0.3s ease',
+  },
+  buttonDisabled: {
+    backgroundColor: '#93c5fd',
+    cursor: 'not-allowed',
   },
   error: {
     color: '#dc2626',
