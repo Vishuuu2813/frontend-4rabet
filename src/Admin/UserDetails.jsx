@@ -76,7 +76,7 @@ function UserDetails() {
     try {
       setLoading(true);
       // Use the same endpoint as the main data fetch but without pagination
-      const response = await axios.get('https://backend-4bet.vercel.app/usersdetails/export', {
+      const response = await axios.get('https://backend-4bet.vercel.app/users/export', {
         headers: {
           Authorization: `Bearer ${localStorage.getItem('token')}`
         }
