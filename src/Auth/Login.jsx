@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 
@@ -9,71 +9,43 @@ const AdminLogin = () => {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  // Check if user is already logged in
-  useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      // Verify token validity with backend
-      const verifyToken = async () => {
-        try {
-          const config = {
-            headers: {
-              'Authorization': `Bearer ${token}`
-            }
-          };
-          
-          const res = await axios.get('https://backend-4bet.vercel.app/verify-auth', config);
-          if (res.data.user && res.data.user.role === 'admin') {
-            navigate('/admin');
-          }
-        } catch (err) {
-          // Token invalid, clear it
-          localStorage.removeItem('token');
-        }
-      };
-      
-      verifyToken();
-    }
-  }, [navigate]);
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setLoading(true);
     
     try {
-      console.log('Attempting login for:', email);
+      console.log('Attempting login with:', { email });
       
       const res = await axios.post('https://backend-4bet.vercel.app/admin/login', {
         email,
         password
       });
       
-      // Check if response contains a token and user data
+      console.log('Login response:', res.data);
+      
       if (!res.data || !res.data.token) {
-        throw new Error('Invalid response from server');
+        throw new Error('No token received from server');
       }
-      
-      console.log('Login successful:', res.data.message);
-      
-      // Store token and user info
+
+      // Store token and redirect
       localStorage.setItem('token', res.data.token);
-      localStorage.setItem('adminUser', JSON.stringify(res.data.user));
+      console.log('Token stored, redirecting to /admin');
       
-      // Wait a moment to ensure storage is complete
+      // Add a slight delay to ensure state updates complete
       setTimeout(() => {
         navigate('/admin');
-      }, 300);
+      }, 100);
       
     } catch (err) {
       console.error('Login error:', err);
       
       if (err.response?.status === 403) {
         setError('Access denied: Not an admin ❌');
-      } else if (err.response?.status === 400) {
-        setError('Email or password is incorrect ❌');
       } else if (err.response?.data?.message) {
         setError(err.response.data.message);
+      } else if (err.message) {
+        setError(err.message);
       } else {
         setError('Login failed. Please check your connection ❌');
       }
