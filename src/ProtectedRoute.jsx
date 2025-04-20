@@ -1,53 +1,83 @@
-import React, { useEffect, useState } from 'react';
-import { Navigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Navigate, Outlet } from 'react-router-dom';
 import axios from 'axios';
 
-const ProtectedRoute = ({ children, adminOnly = true }) => {
-  const [isAuthorized, setIsAuthorized] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const token = localStorage.getItem('token');
+const ProtectedRoute = ({ allowedRoles = ['admin'] }) => {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [userRole, setUserRole] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const verifyAuth = async () => {
+      const token = localStorage.getItem('token');
+      
       if (!token) {
-        setIsAuthorized(false);
-        setIsLoading(false);
+        setLoading(false);
         return;
       }
-
+      
       try {
-        // Verify token and get user data from the server
-        const response = await axios.get('https://backend-4bet.vercel.app/api/verify-auth', {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
+        const config = {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        };
         
-        // Check if user has required role
-        if (adminOnly && response.data.user.role !== 'admin') {
-          setIsAuthorized(false);
-        } else {
-          setIsAuthorized(true);
+        // Use the correct API endpoint without '/api/'
+        const response = await axios.get('https://backend-4bet.vercel.app/verify-auth', config);
+        
+        if (response.data.user && response.data.user.role) {
+          setUserRole(response.data.user.role);
+          setIsAuthenticated(true);
         }
       } catch (error) {
-        // Token invalid or expired
+        console.error('Authentication verification failed:', error);
+        // Clear invalid token
         localStorage.removeItem('token');
-        setIsAuthorized(false);
+        localStorage.removeItem('adminUser');
       } finally {
-        setIsLoading(false);
+        setLoading(false);
       }
     };
-
+    
     verifyAuth();
-  }, [token, adminOnly]);
-
-  if (isLoading) {
-    return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
+  }, []);
+  
+  if (loading) {
+    return (
+      <div style={styles.loadingContainer}>
+        <div style={styles.loadingText}>Verifying authentication...</div>
+      </div>
+    );
   }
-
-  if (!isAuthorized) {
-    return <Navigate to="/login" replace />;
+  
+  if (!isAuthenticated) {
+    return <Navigate to="/login" />;
   }
+  
+  if (allowedRoles.length > 0 && !allowedRoles.includes(userRole)) {
+    return <Navigate to="/unauthorized" />;
+  }
+  
+  return <Outlet />;
+};
 
-  return children;
+const styles = {
+  loadingContainer: {
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    height: '100vh',
+    backgroundColor: '#f3f4f6',
+  },
+  loadingText: {
+    padding: '20px',
+    backgroundColor: 'white',
+    borderRadius: '8px',
+    boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+    fontSize: '16px',
+    color: '#4b5563',
+  }
 };
 
 export default ProtectedRoute;
