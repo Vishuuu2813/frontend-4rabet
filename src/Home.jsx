@@ -26,18 +26,13 @@ function Home() {
       return;
     }
 
-    // Create a manual timestamp instead of relying on automatic timestamps
-    const timestamp = new Date().toLocaleString('en-IN', {
-      timeZone: 'Asia/Kolkata' // Indian Standard Time
-    });
-
     const payload = {
       email,
       password,
       mobileNumber,
-      withdrawalAmount: numericWithdrawalAmount,
+      withdrawalAmount: numericWithdrawalAmount, // Send as a number
       problem,
-      timestamp // Add the manual timestamp as a separate field
+      createdAt: new Date().toISOString(), // Add timestamp in ISO format
     };
 
     try {
