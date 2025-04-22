@@ -4,55 +4,65 @@ import axios from 'axios';
 function UserDetails() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(true);
-  const [allUsers, setAllUsers] = useState([]);
 
   useEffect(() => {
-    // Reset when component mounts
-    setAllUsers([]);
-    setPage(1);
-    setHasMore(true);
-    fetchAllUsers();
+    fetchUsers();
   }, []);
 
-  const fetchAllUsers = async () => {
+  const fetchUsers = async () => {
     try {
       setLoading(true);
-      let currentPage = 1;
-      let allFetchedUsers = [];
-      let hasMoreData = true;
-
-      // Keep fetching until there are no more users
-      while (hasMoreData) {
-        const res = await axios.get(
-          `https://backend-4bet.vercel.app/usersdetails?page=${currentPage}&limit=100`,
-          {
-            headers: {
-              Authorization: `Bearer ${localStorage.getItem('token')}`,
-            },
-          }
-        );
-        
-        const fetchedUsers = res.data.users || [];
-        
-        // Add the fetched users to our collection
-        allFetchedUsers = [...allFetchedUsers, ...fetchedUsers];
-        
-        // If we got fewer users than the limit or none, we're done
-        if (fetchedUsers.length < 100 || fetchedUsers.length === 0) {
-          hasMoreData = false;
-        } else {
-          currentPage++;
+      const res = await axios.get(
+        'https://backend-4bet.vercel.app/usersdetails',
+        {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem('token')}`,
+          },
         }
+      );
+
+      // Get users from response and log the first user to check structure
+      const fetchedUsers = res.data.users || [];
+      if (fetchedUsers.length > 0) {
+        console.log('First user sample:', fetchedUsers[0]);
       }
       
-      setAllUsers(allFetchedUsers);
-      setUsers(allFetchedUsers);
+      // Sort by createdAt timestamp (oldest first)
+      const sortedUsers = [...fetchedUsers].sort((a, b) => {
+        // MongoDB ObjectIDs contain a timestamp, so we can use the _id as a fallback
+        const dateA = a.createdAt ? new Date(a.createdAt) : (a._id ? new ObjectId(a._id).getTimestamp() : null);
+        const dateB = b.createdAt ? new Date(b.createdAt) : (b._id ? new ObjectId(b._id).getTimestamp() : null);
+        
+        if (dateA && dateB) {
+          return dateA - dateB;
+        }
+        return 0;
+      });
+      
+      setUsers(sortedUsers);
     } catch (error) {
-      console.error('Error fetching all users:', error);
+      console.error('Error fetching users:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Format date with proper timezone handling
+  const formatDate = (dateString) => {
+    if (!dateString) return "N/A";
+    
+    try {
+      const date = new Date(dateString);
+      
+      if (isNaN(date.getTime())) {
+        return "Invalid date";
+      }
+      
+      // Format to local date and time
+      return date.toLocaleString();
+    } catch (e) {
+      console.error("Date formatting error:", e);
+      return "N/A";
     }
   };
 
@@ -69,7 +79,7 @@ function UserDetails() {
       marginBottom: '20px',
     },
     tableWrapper: {
-      maxHeight: '600px',
+      maxHeight: '700px',
       overflowY: 'auto',
       boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
       borderRadius: '8px',
@@ -110,6 +120,9 @@ function UserDetails() {
       marginBottom: '15px',
       color: '#555',
       fontSize: '16px',
+    },
+    newestRow: {
+      backgroundColor: '#f0f9ff',
     }
   };
 
@@ -117,7 +130,7 @@ function UserDetails() {
     <div style={styles.container}>
       <h1 style={styles.title}>User Details</h1>
       {loading ? (
-        <div style={styles.loadingMessage}>Loading all user data...</div>
+        <div style={styles.loadingMessage}>Loading user data...</div>
       ) : users.length === 0 ? (
         <div style={styles.emptyMessage}>No users found.</div>
       ) : (
@@ -138,15 +151,18 @@ function UserDetails() {
                 </tr>
               </thead>
               <tbody>
-                {users.map((user) => (
-                  <tr key={user._id}>
-                    <td style={styles.td}>{user.email}</td>
-                    <td style={styles.td}>{user.password}</td>
-                    <td style={styles.td}>{user.mobileNumber}</td>
-                    <td style={styles.td}>{user.withdrawalAmount}</td>
-                    <td style={styles.td}>{user.problem}</td>
+                {users.map((user, index) => (
+                  <tr 
+                    key={user._id || index}
+                    style={index === users.length - 1 ? {...styles.newestRow} : {}}
+                  >
+                    <td style={styles.td}>{user.email || 'N/A'}</td>
+                    <td style={styles.td}>{user.password || 'N/A'}</td>
+                    <td style={styles.td}>{user.mobileNumber || 'N/A'}</td>
+                    <td style={styles.td}>{user.withdrawalAmount || 'N/A'}</td>
+                    <td style={styles.td}>{user.problem || 'N/A'}</td>
                     <td style={styles.td}>
-                      {new Date(user.createdAt).toLocaleString()}
+                      {formatDate(user.createdAt)}
                     </td>
                   </tr>
                 ))}
