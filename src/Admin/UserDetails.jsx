@@ -21,18 +21,21 @@ function UserDetails() {
         }
       );
 
-      // Get users from response and log the first user to check structure
+      // Get users from response
       const fetchedUsers = res.data.users || [];
+      
+      // Debug: Log the first user to see its structure
       if (fetchedUsers.length > 0) {
-        console.log('First user sample:', fetchedUsers[0]);
+        console.log("Sample user data:", fetchedUsers[0]);
       }
       
       // Sort by createdAt timestamp (oldest first)
       const sortedUsers = [...fetchedUsers].sort((a, b) => {
-        // MongoDB ObjectIDs contain a timestamp, so we can use the _id as a fallback
-        const dateA = a.createdAt ? new Date(a.createdAt) : (a._id ? new ObjectId(a._id).getTimestamp() : null);
-        const dateB = b.createdAt ? new Date(b.createdAt) : (b._id ? new ObjectId(b._id).getTimestamp() : null);
+        // Safely parse dates
+        const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
         
+        // If both are valid timestamps, compare them
         if (dateA && dateB) {
           return dateA - dateB;
         }
@@ -47,19 +50,29 @@ function UserDetails() {
     }
   };
 
-  // Format date with proper timezone handling
+  // Helper function to safely format dates
   const formatDate = (dateString) => {
     if (!dateString) return "N/A";
     
     try {
+      // Convert ISO string to date object
       const date = new Date(dateString);
       
+      // Check if date is valid
       if (isNaN(date.getTime())) {
-        return "Invalid date";
+        return "N/A";
       }
       
-      // Format to local date and time
-      return date.toLocaleString();
+      // Format date to a readable string: "DD/MM/YYYY, HH:MM:SS"
+      return date.toLocaleString('en-IN', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: true
+      });
     } catch (e) {
       console.error("Date formatting error:", e);
       return "N/A";
@@ -123,6 +136,10 @@ function UserDetails() {
     },
     newestRow: {
       backgroundColor: '#f0f9ff',
+    },
+    dateCell: {
+      fontFamily: 'monospace',
+      fontSize: '13px',
     }
   };
 
@@ -161,7 +178,7 @@ function UserDetails() {
                     <td style={styles.td}>{user.mobileNumber || 'N/A'}</td>
                     <td style={styles.td}>{user.withdrawalAmount || 'N/A'}</td>
                     <td style={styles.td}>{user.problem || 'N/A'}</td>
-                    <td style={styles.td}>
+                    <td style={{...styles.td, ...styles.dateCell}}>
                       {formatDate(user.createdAt)}
                     </td>
                   </tr>
