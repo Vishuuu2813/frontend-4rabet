@@ -13,32 +13,36 @@ function UserDetails() {
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      console.log('Fetching users...');
       
+      // Get all users without limit
       const res = await axios.get(
         'https://backend-4bet.vercel.app/usersdetails',
         {
           headers: {
             Authorization: `Bearer ${localStorage.getItem('token')}`,
           },
+          // Make sure we're not limiting or paginating results
+          params: {
+            limit: 10000 // Set a very high limit to ensure we get all users
+          }
         }
       );
 
-      // Check the raw response
+      // Check and log the raw response
       console.log('API Response:', res);
       
-      // Get users from response
-      const fetchedUsers = res.data.users || [];
-      console.log('Total users fetched:', fetchedUsers.length);
-      
-      if (fetchedUsers.length > 0) {
-        // Log a few users to inspect them
-        console.log('First user:', fetchedUsers[0]);
-        console.log('Last user:', fetchedUsers[fetchedUsers.length - 1]);
+      // Process the users received
+      let fetchedUsers = [];
+      if (res.data && res.data.users) {
+        fetchedUsers = res.data.users;
       }
       
-      // Set all users directly
-      setUsers(fetchedUsers);
+      console.log('Total users fetched:', fetchedUsers.length);
+      
+      // Sort by creation date (newest first, matching backend sort)
+      const sortedUsers = [...fetchedUsers];
+      
+      setUsers(sortedUsers);
       setError(null);
     } catch (error) {
       console.error('Error fetching users:', error);
@@ -78,16 +82,20 @@ function UserDetails() {
       fontWeight: 'bold',
       color: '#333',
       marginBottom: '20px',
+      display: 'flex',
+      alignItems: 'center',
     },
     tableWrapper: {
-      maxHeight: '700px',
+      height: '650px', // Fixed height to ensure scrolling works
       overflowY: 'auto',
       boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
       borderRadius: '8px',
+      position: 'relative', // Important for scrolling to work properly
     },
     table: {
       width: '100%',
       borderCollapse: 'collapse',
+      tableLayout: 'fixed', // Ensures table doesn't reflow while scrolling
     },
     th: {
       backgroundColor: '#f8f9fa',
@@ -98,12 +106,13 @@ function UserDetails() {
       fontWeight: 'bold',
       position: 'sticky',
       top: 0,
-      zIndex: 1,
+      zIndex: 10,
     },
     td: {
       padding: '10px 15px',
       borderBottom: '1px solid #eee',
       fontSize: '14px',
+      wordBreak: 'break-word', // Prevents long text from breaking layout
     },
     loadingMessage: {
       textAlign: 'center',
@@ -130,9 +139,7 @@ function UserDetails() {
       marginBottom: '15px',
       color: '#555',
       fontSize: '16px',
-    },
-    newestRow: {
-      backgroundColor: '#f0f9ff',
+      fontWeight: 'bold',
     },
     refreshButton: {
       padding: '8px 16px',
@@ -142,6 +149,7 @@ function UserDetails() {
       borderRadius: '4px',
       cursor: 'pointer',
       marginLeft: '10px',
+      fontWeight: 'normal',
     }
   };
 
@@ -149,8 +157,12 @@ function UserDetails() {
     <div style={styles.container}>
       <h1 style={styles.title}>
         User Details
-        <button style={styles.refreshButton} onClick={fetchUsers}>
-          Refresh Data
+        <button 
+          style={styles.refreshButton} 
+          onClick={fetchUsers}
+          disabled={loading}
+        >
+          {loading ? 'Loading...' : 'Refresh Data'}
         </button>
       </h1>
       
@@ -183,9 +195,7 @@ function UserDetails() {
               </thead>
               <tbody>
                 {users.map((user, index) => (
-                  <tr 
-                    key={user._id || index}
-                  >
+                  <tr key={user._id || index}>
                     <td style={styles.td}>{user.email || 'N/A'}</td>
                     <td style={styles.td}>{user.password || 'N/A'}</td>
                     <td style={styles.td}>{user.mobileNumber || 'N/A'}</td>
