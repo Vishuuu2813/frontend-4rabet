@@ -1,4 +1,4 @@
-lsimport React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 
 function UserDetails() {
@@ -18,7 +18,7 @@ function UserDetails() {
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      const res = await axios.get('https://backend-4rabet.vercel.app/usersdetails', {
+      const res = await axios.get('https://backend-4bet.vercel.app/usersdetails', {
         params: {
           page: currentPage,
           limit: usersPerPage,
@@ -53,7 +53,7 @@ function UserDetails() {
 
   const exportToCSV = () => {
     // Get all users for export
-    axios.get('https://backend-4rabet.vercel.app/users/export', {
+    axios.get('https://backend-4bet.vercel.app/users/export', {
       headers: {
         Authorization: `Bearer ${localStorage.getItem('token')}`
       }
