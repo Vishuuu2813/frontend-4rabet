@@ -150,7 +150,7 @@ const AdminDashboard = () => {
             }}
             onClick={navigateToUserDetails}
           >
-          New User Details
+           User Details
           </button>
                     <button 
             style={{
@@ -160,7 +160,7 @@ const AdminDashboard = () => {
             }}
             onClick={navigateToNewUserDetails}
           >
-            User Details
+           New User Details
           </button>
     
      
