@@ -12,15 +12,18 @@ function UserDetails() {
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      const res = await axios.get('https://backend-4bet.vercel.app/usersdetails', {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('token')}`
+      const res = await axios.get(
+        'https://backend-4bet.vercel.app/usersdetails',
+        {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem('token')}`,
+          },
         }
-      });
+      );
       setUsers(res.data.users);
-      setLoading(false);
     } catch (error) {
       console.error('Error fetching users:', error);
+    } finally {
       setLoading(false);
     }
   };
@@ -38,11 +41,10 @@ function UserDetails() {
       marginBottom: '20px',
     },
     tableWrapper: {
-      maxHeight: '70vh', // Set a fixed height for scrolling
-      overflowY: 'auto',  // Enable vertical scrolling
-      border: '1px solid #ddd',
-      borderRadius: '8px',
+      maxHeight: '600px',       // adjust height as needed
+      overflowY: 'auto',
       boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+      borderRadius: '8px',
     },
     table: {
       width: '100%',
@@ -57,7 +59,7 @@ function UserDetails() {
       fontWeight: 'bold',
       position: 'sticky',
       top: 0,
-      zIndex: 10,
+      zIndex: 1,
     },
     td: {
       padding: '10px 15px',
@@ -75,13 +77,13 @@ function UserDetails() {
       margin: '40px 0',
       fontSize: '16px',
       color: '#666',
-    }
+    },
   };
 
   return (
     <div style={styles.container}>
       <h1 style={styles.title}>User Details</h1>
-      
+
       {loading ? (
         <div style={styles.loadingMessage}>Loading user data...</div>
       ) : users.length === 0 ? (
@@ -107,7 +109,9 @@ function UserDetails() {
                   <td style={styles.td}>{user.mobileNumber}</td>
                   <td style={styles.td}>{user.withdrawalAmount}</td>
                   <td style={styles.td}>{user.problem}</td>
-                  <td style={styles.td}>{new Date(user.createdAt).toLocaleString()}</td>
+                  <td style={styles.td}>
+                    {new Date(user.createdAt).toLocaleString()}
+                  </td>
                 </tr>
               ))}
             </tbody>
