@@ -80,7 +80,7 @@ const AdminDashboard = () => {
   const navigateToUserDetails = () => {
     navigate('/user-details');
   };
-  const navigateToNewUserDetail = () => {
+  const navigateToNewUserDetails = () => {
     navigate('/new-user-details');
   };
 
@@ -158,7 +158,7 @@ const AdminDashboard = () => {
               backgroundColor: activeTab === 'userDetails' ? '#2563eb' : 'transparent',
               color: activeTab === 'userDetails' ? 'white' : '#1f2937'
             }}
-            onClick={navigateToNewUserDetail}
+            onClick={navigateToNewUserDetails}
           >
             User Details
           </button>
