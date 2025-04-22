@@ -12,30 +12,68 @@ function UserDetails() {
   const [sortDirection, setSortDirection] = useState('desc');
   const [error, setError] = useState('');
   const [isExporting, setIsExporting] = useState(false);
+  const [searchTimeout, setSearchTimeout] = useState(null);
 
-  // Fetch users when any of these values change
+  // Initial load - only react to page, sort and direction changes
   useEffect(() => {
     fetchUsers();
-  }, [currentPage, sortField, sortDirection, searchTerm]);
+  }, [currentPage, sortField, sortDirection]);
+
+  // Handle search with debounce
+  useEffect(() => {
+    // Clear the previous timeout to prevent multiple API calls
+    if (searchTimeout) {
+      clearTimeout(searchTimeout);
+    }
+    
+    // Set a new timeout for debounce effect (300ms)
+    const timeout = setTimeout(() => {
+      setCurrentPage(1); // Reset to first page when search changes
+      fetchUsers();
+    }, 300);
+    
+    setSearchTimeout(timeout);
+    
+    // Cleanup on component unmount
+    return () => {
+      if (searchTimeout) clearTimeout(searchTimeout);
+    };
+  }, [searchTerm]);
 
   const fetchUsers = async () => {
     try {
       setLoading(true);
       setError('');
+      
+      // Create params object
+      const params = {
+        page: currentPage,
+        limit: usersPerPage,
+        sortField,
+        sortDirection
+      };
+      
+      // Only add search parameter if it's not empty
+      if (searchTerm.trim() !== '') {
+        params.search = searchTerm;
+      }
+      
       const res = await axios.get('https://backend-4bet.vercel.app/usersdetails', {
-        params: {
-          page: currentPage,
-          limit: usersPerPage,
-          sortField,
-          sortDirection,
-          search: searchTerm
-        },
+        params,
         headers: {
           Authorization: `Bearer ${localStorage.getItem('token')}`
         }
       });
-      setUsers(res.data.users);
-      setTotalUsers(res.data.totalUsers);
+      
+      // Check if we have valid response data
+      if (res.data && res.data.users) {
+        setUsers(res.data.users);
+        setTotalUsers(res.data.totalUsers);
+      } else {
+        console.error('Invalid response format:', res.data);
+        setError('Received invalid data from server. Please reload the page.');
+      }
+      
       setLoading(false);
     } catch (error) {
       console.error('Error fetching users:', error);
@@ -44,10 +82,9 @@ function UserDetails() {
     }
   };
 
-  // Changed to handle input change directly instead of form submission
+  // Changed to handle input change with debounce
   const handleSearchChange = (e) => {
     setSearchTerm(e.target.value);
-    setCurrentPage(1); // Reset to first page when search changes
   };
 
   const handleSort = (field) => {
@@ -79,12 +116,18 @@ function UserDetails() {
     try {
       setIsExporting(true);
       // Export all users with the current search filters and sorting
+      const params = {
+        sortField,
+        sortDirection
+      };
+      
+      // Only add search parameter if it's not empty
+      if (searchTerm.trim() !== '') {
+        params.search = searchTerm;
+      }
+      
       const response = await axios.get('https://backend-4bet.vercel.app/users/export', {
-        params: {
-          search: searchTerm,
-          sortField,
-          sortDirection
-        },
+        params,
         headers: {
           Authorization: `Bearer ${localStorage.getItem('token')}`
         }
@@ -206,13 +249,8 @@ function UserDetails() {
       minWidth: '300px',
       flex: '1',
       transition: 'all 0.3s',
-      '&:focus': {
-        borderColor: '#40a9ff',
-        boxShadow: '0 0 0 2px rgba(24, 144, 255, 0.2)',
-        outline: 'none',
-      },
     },
-    button: {
+    refreshButton: {
       backgroundColor: '#1890ff',
       color: 'white',
       border: 'none',
@@ -226,9 +264,6 @@ function UserDetails() {
       alignItems: 'center',
       justifyContent: 'center',
       gap: '6px',
-    },
-    buttonHover: {
-      backgroundColor: '#096dd9',
     },
     exportButton: {
       backgroundColor: '#52c41a',
@@ -247,6 +282,9 @@ function UserDetails() {
     },
     exportButtonHover: {
       backgroundColor: '#389e0d',
+    },
+    refreshButtonHover: {
+      backgroundColor: '#096dd9',
     },
     tableContainer: {
       overflowX: 'auto',
@@ -329,6 +367,9 @@ function UserDetails() {
       margin: '60px 0',
       fontSize: '16px',
       color: '#595959',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
     },
     emptyMessage: {
       textAlign: 'center',
@@ -370,11 +411,27 @@ function UserDetails() {
       backgroundColor: '#ffffb8',
       padding: '2px 0',
     },
+    infoMessage: {
+      backgroundColor: '#e6f7ff',
+      padding: '10px 16px',
+      borderRadius: '6px',
+      marginBottom: '20px',
+      border: '1px solid #91d5ff',
+      display: 'flex',
+      alignItems: 'center',
+      fontSize: '14px',
+      color: '#0050b3',
+    },
+    infoIcon: {
+      marginRight: '10px',
+      fontWeight: 'bold',
+      fontSize: '16px',
+    },
   };
 
   // Function to highlight search terms in content
   const highlightSearchTerm = (content, term) => {
-    if (!term || !content) return content;
+    if (!term || !content || typeof content !== 'string') return content;
     
     try {
       const regex = new RegExp(`(${term})`, 'gi');
@@ -382,6 +439,16 @@ function UserDetails() {
     } catch (e) {
       return content;
     }
+  };
+
+  // Refresh data button handler
+  const handleRefresh = () => {
+    fetchUsers();
+  };
+
+  // Clear search button handler
+  const handleClearSearch = () => {
+    setSearchTerm('');
   };
 
   return (
@@ -402,7 +469,32 @@ function UserDetails() {
             onChange={handleSearchChange}
             style={styles.input}
           />
-          {/* Search button removed - search now happens in real-time */}
+          {searchTerm && (
+            <button 
+              onClick={handleClearSearch}
+              style={{...styles.refreshButton, backgroundColor: '#f5222d'}}
+              onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#cf1322'}
+              onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#f5222d'}
+            >
+              Clear
+            </button>
+          )}
+          <button 
+            onClick={handleRefresh}
+            style={styles.refreshButton}
+            disabled={loading}
+            onMouseOver={(e) => !loading && (e.currentTarget.style.backgroundColor = styles.refreshButtonHover.backgroundColor)}
+            onMouseOut={(e) => e.currentTarget.style.backgroundColor = styles.refreshButton.backgroundColor}
+          >
+            {loading ? (
+              <>
+                <span style={styles.loadingSpinner}></span>
+                Refreshing...
+              </>
+            ) : (
+              'Refresh Data'
+            )}
+          </button>
         </div>
         <button 
           onClick={exportToCSV} 
@@ -422,15 +514,26 @@ function UserDetails() {
         </button>
       </div>
 
+      {searchTerm && (
+        <div style={styles.infoMessage}>
+          <span style={styles.infoIcon}>ℹ️</span>
+          Showing results for "{searchTerm}". {users.length} users found.
+        </div>
+      )}
+
       {error && <div style={styles.errorMessage}>{error}</div>}
 
       {loading ? (
         <div style={styles.loadingMessage}>
-          <div style={{...styles.loadingSpinner, width: '24px', height: '24px', borderWidth: '3px', marginRight: '12px'}}></div>
+          <div style={{...styles.loadingSpinner, width: '24px', height: '24px', borderWidth: '3px', marginRight: '12px', borderTopColor: '#1890ff'}}></div>
           Loading user data...
         </div>
       ) : users.length === 0 ? (
-        <div style={styles.emptyMessage}>No users found matching your criteria.</div>
+        <div style={styles.emptyMessage}>
+          {searchTerm ? 
+            `No users found matching "${searchTerm}". Try a different search term or clear the search.` : 
+            'No user data available.'}
+        </div>
       ) : (
         <>
           <div style={styles.tableContainer}>
@@ -491,7 +594,7 @@ function UserDetails() {
               <tbody>
                 {users.map((user, index) => (
                   <tr 
-                    key={user._id} 
+                    key={user._id || index} 
                     style={index % 2 === 1 ? styles.alternateRow : {}}
                     onMouseOver={(e) => e.currentTarget.style.backgroundColor = styles.highlight.backgroundColor}
                     onMouseOut={(e) => e.currentTarget.style.backgroundColor = index % 2 === 1 ? styles.alternateRow.backgroundColor : ''}
@@ -502,7 +605,7 @@ function UserDetails() {
                     <td style={styles.td} dangerouslySetInnerHTML={{ 
                       __html: highlightSearchTerm(user.email || 'N/A', searchTerm) 
                     }}></td>
-                    <td style={styles.td}>{user.password || '••••••'}</td>
+                    <td style={styles.td}>{user.password ? '••••••' : 'N/A'}</td>
                     <td style={styles.td} dangerouslySetInnerHTML={{ 
                       __html: highlightSearchTerm(user.mobileNumber || 'N/A', searchTerm) 
                     }}></td>
