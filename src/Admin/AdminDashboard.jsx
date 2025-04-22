@@ -80,6 +80,9 @@ const AdminDashboard = () => {
   const navigateToUserDetails = () => {
     navigate('/user-details');
   };
+  const navigateToNewUserDetail = () => {
+    navigate('/new-user-details');
+  };
 
   const toggleSidebar = () => {
     setSidebarOpen(!sidebarOpen);
