@@ -26,8 +26,7 @@ function UserDetails() {
 
       let fetchedUsers = [];
       if (res.data && res.data.users) {
-        // Keep the data exactly as returned from MongoDB
-        // DO NOT modify the order
+        // DO NOT modify the data or its order in any way
         fetchedUsers = res.data.users;
       }
 
@@ -144,19 +143,11 @@ function UserDetails() {
       marginLeft: '10px',
       fontWeight: 'normal',
     },
-    showAllText: {
+    monogDbFormat: {
       fontSize: '16px',
       marginBottom: '10px',
-      color: '#e74c3c',
-    },
-    serialNumber: {
+      color: '#2980b9',
       fontWeight: 'bold',
-      textAlign: 'center',
-    },
-    idColumn: {
-      maxWidth: '220px',
-      overflow: 'hidden',
-      textOverflow: 'ellipsis',
     },
   };
 
@@ -172,8 +163,8 @@ function UserDetails() {
           {loading ? 'Loading...' : 'Refresh Data'}
         </button>
       </h1>
-      <div style={styles.showAllText}>
-        Showing data exactly as stored in MongoDB
+      <div style={styles.monogDbFormat}>
+        MongoDB Format Display
       </div>
       {error && (
         <div style={styles.errorMessage}>
@@ -193,8 +184,8 @@ function UserDetails() {
             <table style={styles.table}>
               <thead>
                 <tr>
-                  <th style={{...styles.th, width: '40px'}}>Idx</th>
-                  <th style={{...styles.th, width: '220px'}}>_id</th>
+                  <th style={{...styles.th, width: '60px'}}>S.No</th>
+                  <th style={styles.th}>_id</th>
                   <th style={styles.th}>Email</th>
                   <th style={styles.th}>Password</th>
                   <th style={styles.th}>Mobile Number</th>
@@ -206,8 +197,10 @@ function UserDetails() {
               <tbody>
                 {users.map((user, index) => (
                   <tr key={user._id || index}>
-                    <td style={{...styles.td, ...styles.serialNumber}}>{index + 1}</td>
-                    <td style={{...styles.td, ...styles.idColumn}}>{user._id}</td>
+                    <td style={{...styles.td, textAlign: 'center', fontWeight: 'bold'}}>{index + 1}</td>
+                    <td style={styles.td} title={user._id}>
+                      {user._id && user._id.substring(0, 8) + "..."}
+                    </td>
                     <td style={styles.td}>{user.email || 'N/A'}</td>
                     <td style={styles.td}>{user.password || 'N/A'}</td>
                     <td style={styles.td}>{user.mobileNumber || 'N/A'}</td>
