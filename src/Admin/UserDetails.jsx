@@ -4,25 +4,22 @@ import axios from 'axios';
 function UserDetails() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [usersPerPage] = useState(10);
   const [searchTerm, setSearchTerm] = useState('');
   const [totalUsers, setTotalUsers] = useState(0);
   const [error, setError] = useState(null);
 
-  // Add this for debugging
   useEffect(() => {
     // Check if token exists
     const token = localStorage.getItem('token');
     if (!token) {
       console.warn("No authentication token found in localStorage");
-      // You might want to redirect to login or set some state
+      setError("Authentication token missing. Please login again.");
     }
   }, []);
 
   useEffect(() => {
     fetchUsers();
-  }, [currentPage]);
+  }, []);
 
   const fetchUsers = async () => {
     try {
@@ -37,14 +34,13 @@ function UserDetails() {
         return;
       }
       
-      console.log("Fetching users with token:", token ? "Token exists" : "No token");
-      console.log("Current page:", currentPage);
+      console.log("Fetching all users with token:", token ? "Token exists" : "No token");
       
+      // Now fetch all users without pagination
       const res = await axios.get('https://backend-4rabet.vercel.app/usersdetails', {
         params: {
-          page: currentPage,
-          limit: usersPerPage,
-          search: searchTerm
+          // No pagination parameters
+          search: searchTerm || ""
         },
         headers: {
           Authorization: `Bearer ${token}`
@@ -78,12 +74,10 @@ function UserDetails() {
 
   const handleSearch = (e) => {
     e.preventDefault();
-    setCurrentPage(1);
     fetchUsers();
   };
 
   const refreshData = () => {
-    setCurrentPage(1);
     setSearchTerm('');
     fetchUsers();
   };
@@ -145,13 +139,6 @@ function UserDetails() {
       setError("Failed to export data: " + (error.message || "Unknown error"));
     });
   };
-
-  // Pagination logic
-  const totalPages = Math.ceil(totalUsers / usersPerPage);
-  const pageNumbers = [];
-  for (let i = 1; i <= totalPages; i++) {
-    pageNumbers.push(i);
-  }
 
   const styles = {
     container: {
@@ -222,23 +209,6 @@ function UserDetails() {
       borderBottom: '1px solid #eee',
       fontSize: '14px'
     },
-    pagination: {
-      display: 'flex',
-      justifyContent: 'center',
-      marginTop: '20px',
-      gap: '5px'
-    },
-    pageButton: {
-      padding: '5px 10px',
-      border: '1px solid #ddd',
-      backgroundColor: '#fff',
-      cursor: 'pointer'
-    },
-    activePageButton: {
-      backgroundColor: '#333',
-      color: 'white',
-      border: '1px solid #333'
-    },
     message: {
       textAlign: 'center',
       margin: '40px 0',
@@ -253,7 +223,6 @@ function UserDetails() {
       color: '#c62828',
       borderRadius: '4px'
     },
-    // Add some simple mocked data for debugging
     mockUserRow: {
       backgroundColor: '#f9f9f9'
     }
@@ -312,92 +281,33 @@ function UserDetails() {
       ) : displayUsers.length === 0 ? (
         <div style={styles.message}>No users found.</div>
       ) : (
-        <>
-          <table style={styles.table}>
-            <thead>
-              <tr>
-                <th style={styles.th}>S.No</th>
-                <th style={styles.th}>Email</th>
-                <th style={styles.th}>Password</th>
-                <th style={styles.th}>Mobile Number</th>
-                <th style={styles.th}>Withdrawal Amount</th>
-                <th style={styles.th}>Problem</th>
-              </tr>
-            </thead>
-            <tbody>
-              {displayUsers.map((user, index) => (
-                <tr 
-                  key={user._id || index}
-                  style={users.length === 0 ? styles.mockUserRow : null} // Highlight mock data rows
-                >
-                  <td style={styles.td}>{(currentPage - 1) * usersPerPage + index + 1}</td>
-                  <td style={styles.td}>{user.email}</td>
-                  <td style={styles.td}>{user.password}</td>
-                  <td style={styles.td}>{user.mobileNumber}</td>
-                  <td style={styles.td}>{user.withdrawalAmount}</td>
-                  <td style={styles.td}>{user.problem}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-
-          <div style={styles.pagination}>
-            <button
-              onClick={() => setCurrentPage(1)}
-              disabled={currentPage === 1}
-              style={{
-                ...styles.pageButton,
-                opacity: currentPage === 1 ? 0.5 : 1
-              }}
-            >
-              First
-            </button>
-            <button
-              onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-              disabled={currentPage === 1}
-              style={{
-                ...styles.pageButton,
-                opacity: currentPage === 1 ? 0.5 : 1
-              }}
-            >
-              Prev
-            </button>
-            
-            {pageNumbers.map(number => (
-              <button
-                key={number}
-                onClick={() => setCurrentPage(number)}
-                style={{
-                  ...styles.pageButton,
-                  ...(currentPage === number ? styles.activePageButton : {})
-                }}
+        <table style={styles.table}>
+          <thead>
+            <tr>
+              <th style={styles.th}>S.No</th>
+              <th style={styles.th}>Email</th>
+              <th style={styles.th}>Password</th>
+              <th style={styles.th}>Mobile Number</th>
+              <th style={styles.th}>Withdrawal Amount</th>
+              <th style={styles.th}>Problem</th>
+            </tr>
+          </thead>
+          <tbody>
+            {displayUsers.map((user, index) => (
+              <tr 
+                key={user._id || index}
+                style={users.length === 0 ? styles.mockUserRow : null} // Highlight mock data rows
               >
-                {number}
-              </button>
+                <td style={styles.td}>{index + 1}</td>
+                <td style={styles.td}>{user.email}</td>
+                <td style={styles.td}>{user.password}</td>
+                <td style={styles.td}>{user.mobileNumber}</td>
+                <td style={styles.td}>{user.withdrawalAmount}</td>
+                <td style={styles.td}>{user.problem}</td>
+              </tr>
             ))}
-            
-            <button
-              onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages || 1))}
-              disabled={currentPage === (totalPages || 1)}
-              style={{
-                ...styles.pageButton,
-                opacity: (currentPage === (totalPages || 1)) ? 0.5 : 1
-              }}
-            >
-              Next
-            </button>
-            <button
-              onClick={() => setCurrentPage(totalPages || 1)}
-              disabled={currentPage === (totalPages || 1)}
-              style={{
-                ...styles.pageButton,
-                opacity: (currentPage === (totalPages || 1)) ? 0.5 : 1
-              }}
-            >
-              Last
-            </button>
-          </div>
-        </>
+          </tbody>
+        </table>
       )}
     </div>
   );
