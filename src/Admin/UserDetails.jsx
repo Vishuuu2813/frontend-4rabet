@@ -30,6 +30,9 @@ function UserDetails() {
       padding: '20px',
       maxWidth: '1200px',
       margin: '0 auto',
+      height: '100vh',
+      display: 'flex',
+      flexDirection: 'column',
     },
     title: {
       fontSize: '24px',
@@ -37,12 +40,20 @@ function UserDetails() {
       color: '#333',
       marginBottom: '20px',
     },
+    tableContainer: {
+      flex: 1,
+      overflow: 'auto',
+      borderRadius: '8px',
+      boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+    },
     table: {
       width: '100%',
       borderCollapse: 'collapse',
-      boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-      borderRadius: '8px',
-      overflow: 'hidden',
+    },
+    thead: {
+      position: 'sticky',
+      top: 0,
+      zIndex: 1,
     },
     th: {
       backgroundColor: '#f8f9fa',
@@ -74,36 +85,37 @@ function UserDetails() {
   return (
     <div style={styles.container}>
       <h1 style={styles.title}>User Details</h1>
-
       {loading ? (
         <div style={styles.loadingMessage}>Loading user data...</div>
       ) : users.length === 0 ? (
         <div style={styles.emptyMessage}>No users found.</div>
       ) : (
-        <table style={styles.table}>
-          <thead>
-            <tr>
-              <th style={styles.th}>Email</th>
-              <th style={styles.th}>Password</th>
-              <th style={styles.th}>Mobile Number</th>
-              <th style={styles.th}>Withdrawal Amount</th>
-              <th style={styles.th}>Problem</th>
-              <th style={styles.th}>Created At</th>
-            </tr>
-          </thead>
-          <tbody>
-            {users.map((user) => (
-              <tr key={user._id}>
-                <td style={styles.td}>{user.email}</td>
-                <td style={styles.td}>{user.password}</td>
-                <td style={styles.td}>{user.mobileNumber}</td>
-                <td style={styles.td}>{user.withdrawalAmount}</td>
-                <td style={styles.td}>{user.problem}</td>
-                <td style={styles.td}>{new Date(user.createdAt).toLocaleString()}</td>
+        <div style={styles.tableContainer}>
+          <table style={styles.table}>
+            <thead style={styles.thead}>
+              <tr>
+                <th style={styles.th}>Email</th>
+                <th style={styles.th}>Password</th>
+                <th style={styles.th}>Mobile Number</th>
+                <th style={styles.th}>Withdrawal Amount</th>
+                <th style={styles.th}>Problem</th>
+                <th style={styles.th}>Created At</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {users.map((user) => (
+                <tr key={user._id}>
+                  <td style={styles.td}>{user.email}</td>
+                  <td style={styles.td}>{user.password}</td>
+                  <td style={styles.td}>{user.mobileNumber}</td>
+                  <td style={styles.td}>{user.withdrawalAmount}</td>
+                  <td style={styles.td}>{user.problem}</td>
+                  <td style={styles.td}>{new Date(user.createdAt).toLocaleString()}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </div>
   );
