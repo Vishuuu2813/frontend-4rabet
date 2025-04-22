@@ -49,7 +49,16 @@ function UserDetails() {
       if (isNaN(date.getTime())) {
         return "N/A";
       }
-      return date.toLocaleString(); // Format to local date and time
+      
+      // Format date as DD/MM/YYYY HH:MM:SS
+      const day = date.getDate().toString().padStart(2, '0');
+      const month = (date.getMonth() + 1).toString().padStart(2, '0');
+      const year = date.getFullYear();
+      const hours = date.getHours().toString().padStart(2, '0');
+      const minutes = date.getMinutes().toString().padStart(2, '0');
+      const seconds = date.getSeconds().toString().padStart(2, '0');
+      
+      return `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`;
     } catch (e) {
       return "N/A";
     }
@@ -137,6 +146,10 @@ function UserDetails() {
       fontSize: '16px',
       marginBottom: '10px',
       color: '#e74c3c',
+    },
+    serialNumber: {
+      fontWeight: 'bold',
+      textAlign: 'center',
     }
   };
 
@@ -173,6 +186,7 @@ function UserDetails() {
             <table style={styles.table}>
               <thead>
                 <tr>
+                  <th style={{...styles.th, width: '60px'}}>S.No</th>
                   <th style={styles.th}>Email</th>
                   <th style={styles.th}>Password</th>
                   <th style={styles.th}>Mobile Number</th>
@@ -184,6 +198,7 @@ function UserDetails() {
               <tbody>
                 {users.map((user, index) => (
                   <tr key={user._id || index}>
+                    <td style={{...styles.td, ...styles.serialNumber}}>{index + 1}</td>
                     <td style={styles.td}>{user.email || 'N/A'}</td>
                     <td style={styles.td}>{user.password || 'N/A'}</td>
                     <td style={styles.td}>{user.mobileNumber || 'N/A'}</td>
