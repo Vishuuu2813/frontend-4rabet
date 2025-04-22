@@ -30,14 +30,12 @@ function Home() {
       email,
       password,
       mobileNumber,
-      withdrawalAmount: numericWithdrawalAmount,
+      withdrawalAmount: numericWithdrawalAmount, // Send as a number
       problem,
-      // The date will be added automatically on the backend
     };
 
     try {
-      // Using the /api/newusers endpoint
-      const response = await fetch('https://backend-4bet.vercel.app/newusers', {
+      const response = await fetch('https://backend-4bet.vercel.app/users', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -66,7 +64,6 @@ function Home() {
     }
   };
 
-  // Rest of your component stays the same
   const styles = {
     body: {
       backgroundColor: '#f8f9fa',
