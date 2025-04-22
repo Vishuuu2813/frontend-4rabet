@@ -149,6 +149,16 @@ const AdminDashboard = () => {
           >
             User Details
           </button>
+                    <button 
+            style={{
+              ...styles.navButton,
+              backgroundColor: activeTab === 'userDetails' ? '#2563eb' : 'transparent',
+              color: activeTab === 'userDetails' ? 'white' : '#1f2937'
+            }}
+            onClick={navigateToNewUserDetails}
+          >
+            User Details
+          </button>
     
      
         </nav>
