@@ -5,16 +5,20 @@ function UserDetails() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [rawMongoData, setRawMongoData] = useState(null);
 
   useEffect(() => {
     fetchUsers();
   }, []);
 
+  // This function will fetch MongoDB data exactly as stored
   const fetchUsers = async () => {
     try {
       setLoading(true);
+      
+      // Make the API call with a special parameter to get raw MongoDB format
       const res = await axios.get(
-        'https://backend-4bet.vercel.app/usersdetails?limit=1000',
+        'https://backend-4bet.vercel.app/usersdetails?format=raw&limit=1000',
         {
           headers: {
             Authorization: `Bearer ${localStorage.getItem('token')}`,
@@ -24,9 +28,11 @@ function UserDetails() {
 
       console.log('API Response data:', res.data);
 
+      // Store the raw response for display
+      setRawMongoData(JSON.stringify(res.data, null, 2));
+      
       let fetchedUsers = [];
       if (res.data && res.data.users) {
-        // DO NOT modify the data or its order in any way
         fetchedUsers = res.data.users;
       }
 
@@ -51,15 +57,7 @@ function UserDetails() {
         return "N/A";
       }
       
-      // Format date as DD/MM/YYYY HH:MM:SS
-      const day = date.getDate().toString().padStart(2, '0');
-      const month = (date.getMonth() + 1).toString().padStart(2, '0');
-      const year = date.getFullYear();
-      const hours = date.getHours().toString().padStart(2, '0');
-      const minutes = date.getMinutes().toString().padStart(2, '0');
-      const seconds = date.getSeconds().toString().padStart(2, '0');
-      
-      return `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`;
+      return date.toLocaleString(); // Simple date format
     } catch (e) {
       return "N/A";
     }
@@ -78,6 +76,10 @@ function UserDetails() {
       marginBottom: '20px',
       display: 'flex',
       alignItems: 'center',
+      justifyContent: 'space-between',
+    },
+    tableContainer: {
+      marginTop: '20px',
     },
     tableWrapper: {
       height: '650px',
@@ -143,18 +145,48 @@ function UserDetails() {
       marginLeft: '10px',
       fontWeight: 'normal',
     },
-    monogDbFormat: {
-      fontSize: '16px',
-      marginBottom: '10px',
-      color: '#2980b9',
-      fontWeight: 'bold',
+    viewButtons: {
+      display: 'flex',
+      gap: '10px',
+      marginBottom: '20px',
     },
+    viewButton: {
+      padding: '8px 16px',
+      backgroundColor: '#2980b9',
+      color: 'white',
+      border: 'none',
+      borderRadius: '4px',
+      cursor: 'pointer',
+      fontWeight: 'normal',
+    },
+    activeButton: {
+      backgroundColor: '#1c638d',
+    },
+    rawDataContainer: {
+      marginTop: '20px',
+      padding: '15px',
+      backgroundColor: '#f8f9fa',
+      borderRadius: '5px',
+      border: '1px solid #ddd',
+      overflow: 'auto',
+      height: '650px',
+      whiteSpace: 'pre-wrap',
+      fontFamily: 'monospace',
+      fontSize: '14px',
+    },
+    serialNumber: {
+      textAlign: 'center',
+      fontWeight: 'bold',
+    }
   };
+
+  // State for view toggle
+  const [view, setView] = useState('table'); // 'table' or 'raw'
 
   return (
     <div style={styles.container}>
-      <h1 style={styles.title}>
-        User Details
+      <div style={styles.title}>
+        <span>User Details</span>
         <button 
           style={styles.refreshButton} 
           onClick={fetchUsers}
@@ -162,15 +194,35 @@ function UserDetails() {
         >
           {loading ? 'Loading...' : 'Refresh Data'}
         </button>
-      </h1>
-      <div style={styles.monogDbFormat}>
-        MongoDB Format Display
       </div>
+      
+      <div style={styles.viewButtons}>
+        <button 
+          style={{
+            ...styles.viewButton,
+            ...(view === 'table' ? styles.activeButton : {})
+          }}
+          onClick={() => setView('table')}
+        >
+          Table View
+        </button>
+        <button 
+          style={{
+            ...styles.viewButton,
+            ...(view === 'raw' ? styles.activeButton : {})
+          }}
+          onClick={() => setView('raw')}
+        >
+          MongoDB Raw Format
+        </button>
+      </div>
+      
       {error && (
         <div style={styles.errorMessage}>
           {error}
         </div>
       )}
+      
       {loading ? (
         <div style={styles.loadingMessage}>Loading user data...</div>
       ) : users.length === 0 ? (
@@ -180,40 +232,45 @@ function UserDetails() {
           <div style={styles.userCount}>
             Total Users: {users.length}
           </div>
-          <div style={styles.tableWrapper}>
-            <table style={styles.table}>
-              <thead>
-                <tr>
-                  <th style={{...styles.th, width: '60px'}}>S.No</th>
-                  <th style={styles.th}>_id</th>
-                  <th style={styles.th}>Email</th>
-                  <th style={styles.th}>Password</th>
-                  <th style={styles.th}>Mobile Number</th>
-                  <th style={styles.th}>Withdrawal Amount</th>
-                  <th style={styles.th}>Problem</th>
-                  <th style={styles.th}>Created At</th>
-                </tr>
-              </thead>
-              <tbody>
-                {users.map((user, index) => (
-                  <tr key={user._id || index}>
-                    <td style={{...styles.td, textAlign: 'center', fontWeight: 'bold'}}>{index + 1}</td>
-                    <td style={styles.td} title={user._id}>
-                      {user._id && user._id.substring(0, 8) + "..."}
-                    </td>
-                    <td style={styles.td}>{user.email || 'N/A'}</td>
-                    <td style={styles.td}>{user.password || 'N/A'}</td>
-                    <td style={styles.td}>{user.mobileNumber || 'N/A'}</td>
-                    <td style={styles.td}>{user.withdrawalAmount || 'N/A'}</td>
-                    <td style={styles.td}>{user.problem || 'N/A'}</td>
-                    <td style={styles.td}>
-                      {formatDate(user.createdAt)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          
+          {view === 'table' ? (
+            <div style={styles.tableContainer}>
+              <div style={styles.tableWrapper}>
+                <table style={styles.table}>
+                  <thead>
+                    <tr>
+                      <th style={{...styles.th, width: '60px'}}>S.No</th>
+                      <th style={styles.th}>Email</th>
+                      <th style={styles.th}>Password</th>
+                      <th style={styles.th}>Mobile Number</th>
+                      <th style={styles.th}>Withdrawal Amount</th>
+                      <th style={styles.th}>Problem</th>
+                      <th style={styles.th}>Created At</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {users.map((user, index) => (
+                      <tr key={user._id || index}>
+                        <td style={{...styles.td, ...styles.serialNumber}}>{index + 1}</td>
+                        <td style={styles.td}>{user.email || 'N/A'}</td>
+                        <td style={styles.td}>{user.password || 'N/A'}</td>
+                        <td style={styles.td}>{user.mobileNumber || 'N/A'}</td>
+                        <td style={styles.td}>{user.withdrawalAmount || 'N/A'}</td>
+                        <td style={styles.td}>{user.problem || 'N/A'}</td>
+                        <td style={styles.td}>
+                          {formatDate(user.createdAt)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : (
+            <div style={styles.rawDataContainer}>
+              {rawMongoData || "No raw data available"}
+            </div>
+          )}
         </>
       )}
     </div>
