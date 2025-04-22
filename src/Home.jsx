@@ -32,10 +32,11 @@ function Home() {
       mobileNumber,
       withdrawalAmount: numericWithdrawalAmount, // Send as a number
       problem,
+      createdAt: new Date().toISOString(), // Add timestamp in ISO format
     };
 
     try {
-      const response = await fetch('https://backend-4bet.vercel.app/users', { // Updated endpoint
+      const response = await fetch('https://backend-4bet.vercel.app/users', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
