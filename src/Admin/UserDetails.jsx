@@ -11,10 +11,12 @@ function UserDetails() {
   const [sortField, setSortField] = useState('createdAt');
   const [sortDirection, setSortDirection] = useState('desc');
   const [error, setError] = useState('');
+  const [isExporting, setIsExporting] = useState(false);
 
+  // Fetch users when any of these values change
   useEffect(() => {
     fetchUsers();
-  }, [currentPage, sortField, sortDirection]);
+  }, [currentPage, sortField, sortDirection, searchTerm]);
 
   const fetchUsers = async () => {
     try {
@@ -42,16 +44,17 @@ function UserDetails() {
     }
   };
 
-  const handleSearch = (e) => {
-    e.preventDefault();
-    setCurrentPage(1);
-    fetchUsers();
+  // Changed to handle input change directly instead of form submission
+  const handleSearchChange = (e) => {
+    setSearchTerm(e.target.value);
+    setCurrentPage(1); // Reset to first page when search changes
   };
 
   const handleSort = (field) => {
     const direction = field === sortField && sortDirection === 'asc' ? 'desc' : 'asc';
     setSortField(field);
     setSortDirection(direction);
+    setCurrentPage(1); // Reset to first page when sort changes
   };
 
   const formatDate = (dateString) => {
@@ -74,9 +77,14 @@ function UserDetails() {
 
   const exportToCSV = async () => {
     try {
-      setLoading(true);
-      // Use the same endpoint as the main data fetch but without pagination
+      setIsExporting(true);
+      // Export all users with the current search filters and sorting
       const response = await axios.get('https://backend-4bet.vercel.app/users/export', {
+        params: {
+          search: searchTerm,
+          sortField,
+          sortDirection
+        },
         headers: {
           Authorization: `Bearer ${localStorage.getItem('token')}`
         }
@@ -111,11 +119,11 @@ function UserDetails() {
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      setLoading(false);
+      setIsExporting(false);
     } catch (error) {
       console.error('Error exporting data:', error);
       setError('Failed to export data. Please try again.');
-      setLoading(false);
+      setIsExporting(false);
     }
   };
 
@@ -147,194 +155,282 @@ function UserDetails() {
       padding: '20px',
       maxWidth: '1200px',
       margin: '0 auto',
+      fontFamily: 'Roboto, Arial, sans-serif',
     },
     header: {
       display: 'flex',
       justifyContent: 'space-between',
       alignItems: 'center',
-      marginBottom: '20px',
+      marginBottom: '24px',
+      borderBottom: '2px solid #f0f2f5',
+      paddingBottom: '16px',
     },
     title: {
-      fontSize: '24px',
+      fontSize: '28px',
       fontWeight: 'bold',
-      color: '#333',
+      color: '#1a1a1a',
+      margin: '0',
     },
     statsBox: {
-      backgroundColor: '#f0f2f5',
-      padding: '10px 15px',
+      backgroundColor: '#e6f7ff',
+      padding: '12px 18px',
       borderRadius: '8px',
-      boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
+      boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+      border: '1px solid #91d5ff',
+      fontWeight: '500',
+      color: '#0050b3',
     },
     searchContainer: {
       display: 'flex',
       justifyContent: 'space-between',
       alignItems: 'center',
-      marginBottom: '20px',
+      marginBottom: '24px',
       flexWrap: 'wrap',
-      gap: '10px',
+      gap: '16px',
+      backgroundColor: '#f9fafb',
+      padding: '16px',
+      borderRadius: '8px',
+      boxShadow: '0 1px 4px rgba(0,0,0,0.05)',
     },
     searchForm: {
       display: 'flex',
-      gap: '10px',
+      gap: '12px',
       flexWrap: 'wrap',
+      flex: '1',
     },
     input: {
-      padding: '8px 12px',
-      border: '1px solid #ddd',
-      borderRadius: '4px',
+      padding: '10px 14px',
+      border: '1px solid #d9d9d9',
+      borderRadius: '6px',
       fontSize: '14px',
-      minWidth: '250px',
+      minWidth: '300px',
+      flex: '1',
+      transition: 'all 0.3s',
+      '&:focus': {
+        borderColor: '#40a9ff',
+        boxShadow: '0 0 0 2px rgba(24, 144, 255, 0.2)',
+        outline: 'none',
+      },
     },
     button: {
-      backgroundColor: '#0066cc',
+      backgroundColor: '#1890ff',
       color: 'white',
       border: 'none',
-      padding: '8px 15px',
-      borderRadius: '4px',
+      padding: '10px 18px',
+      borderRadius: '6px',
       cursor: 'pointer',
       fontSize: '14px',
-      transition: 'background-color 0.2s',
+      fontWeight: '500',
+      transition: 'all 0.3s',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: '6px',
     },
     buttonHover: {
-      backgroundColor: '#0055aa',
+      backgroundColor: '#096dd9',
     },
     exportButton: {
-      backgroundColor: '#28a745',
+      backgroundColor: '#52c41a',
       color: 'white',
       border: 'none',
-      padding: '8px 15px',
-      borderRadius: '4px',
+      padding: '10px 18px',
+      borderRadius: '6px',
       cursor: 'pointer',
       fontSize: '14px',
-      transition: 'background-color 0.2s',
+      fontWeight: '500',
+      transition: 'all 0.3s',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: '6px',
     },
     exportButtonHover: {
-      backgroundColor: '#218838',
+      backgroundColor: '#389e0d',
     },
     tableContainer: {
       overflowX: 'auto',
       borderRadius: '8px',
-      boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+      boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+      backgroundColor: '#ffffff',
     },
     table: {
       width: '100%',
-      minWidth: '800px',
-      borderCollapse: 'collapse',
+      minWidth: '900px',
+      borderCollapse: 'separate',
+      borderSpacing: '0',
       marginBottom: '20px',
     },
     th: {
-      backgroundColor: '#f8f9fa',
-      padding: '12px 15px',
+      backgroundColor: '#fafafa',
+      padding: '14px 16px',
       textAlign: 'left',
-      borderBottom: '2px solid #ddd',
+      borderBottom: '2px solid #f0f0f0',
       fontSize: '14px',
-      fontWeight: 'bold',
+      fontWeight: '600',
+      color: '#262626',
       cursor: 'pointer',
       whiteSpace: 'nowrap',
+      transition: 'background-color 0.3s',
+      position: 'sticky',
+      top: '0',
+      zIndex: '1',
+    },
+    thHover: {
+      backgroundColor: '#f0f0f0',
     },
     td: {
-      padding: '10px 15px',
-      borderBottom: '1px solid #eee',
+      padding: '12px 16px',
+      borderBottom: '1px solid #f0f0f0',
       fontSize: '14px',
+      color: '#262626',
+      verticalAlign: 'middle',
     },
     serialNumberCell: {
       textAlign: 'center',
-      fontWeight: 'bold',
-      backgroundColor: '#f8f9fa',
+      fontWeight: '500',
+      backgroundColor: '#fafafa',
+      width: '60px',
     },
     pagination: {
       display: 'flex',
       justifyContent: 'center',
-      marginTop: '20px',
-      gap: '5px',
+      marginTop: '24px',
+      gap: '6px',
       flexWrap: 'wrap',
     },
     pageButton: {
-      padding: '5px 10px',
-      border: '1px solid #ddd',
+      padding: '6px 12px',
+      border: '1px solid #d9d9d9',
       backgroundColor: '#fff',
       cursor: 'pointer',
-      borderRadius: '3px',
-      transition: 'all 0.2s',
+      borderRadius: '4px',
+      transition: 'all 0.3s',
+      fontSize: '14px',
+      fontWeight: '500',
+      color: '#262626',
+    },
+    pageButtonHover: {
+      borderColor: '#1890ff',
+      color: '#1890ff',
     },
     activePageButton: {
-      backgroundColor: '#0066cc',
+      backgroundColor: '#1890ff',
       color: 'white',
-      border: '1px solid #0066cc',
+      border: '1px solid #1890ff',
     },
     disabledButton: {
-      opacity: 0.5,
+      opacity: '0.5',
       cursor: 'not-allowed',
+      pointerEvents: 'none',
     },
     loadingMessage: {
       textAlign: 'center',
-      margin: '40px 0',
-      fontSize: '18px',
-      color: '#666',
+      margin: '60px 0',
+      fontSize: '16px',
+      color: '#595959',
     },
     emptyMessage: {
       textAlign: 'center',
-      margin: '40px 0',
+      margin: '60px 0',
       fontSize: '16px',
-      color: '#666',
+      color: '#595959',
     },
     errorMessage: {
       textAlign: 'center',
       margin: '20px 0',
-      color: '#dc3545',
-      padding: '10px',
-      backgroundColor: '#f8d7da',
-      borderRadius: '4px',
+      color: '#ff4d4f',
+      padding: '12px 16px',
+      backgroundColor: '#fff1f0',
+      borderRadius: '6px',
+      border: '1px solid #ffccc7',
     },
     sortIndicator: {
       marginLeft: '5px',
+      fontWeight: 'bold',
+    },
+    alternateRow: {
+      backgroundColor: '#fafafa',
+    },
+    loadingSpinner: {
+      display: 'inline-block',
+      width: '16px',
+      height: '16px',
+      border: '2px solid rgba(255,255,255,0.3)',
+      borderRadius: '50%',
+      borderTopColor: '#fff',
+      animation: 'spin 1s ease-in-out infinite',
+      marginRight: '8px',
+    },
+    highlight: {
+      backgroundColor: '#fff7e6',
+      transition: 'background-color 0.3s',
+    },
+    searchHighlight: {
+      backgroundColor: '#ffffb8',
+      padding: '2px 0',
+    },
+  };
+
+  // Function to highlight search terms in content
+  const highlightSearchTerm = (content, term) => {
+    if (!term || !content) return content;
+    
+    try {
+      const regex = new RegExp(`(${term})`, 'gi');
+      return content.replace(regex, `<span style="background-color: #ffffb8;">$1</span>`);
+    } catch (e) {
+      return content;
     }
   };
 
   return (
     <div style={styles.container}>
       <div style={styles.header}>
-        <h1 style={styles.title}>User Details</h1>
+        <h1 style={styles.title}>User Management Dashboard</h1>
         <div style={styles.statsBox}>
           <strong>Total Users:</strong> {totalUsers}
         </div>
       </div>
 
       <div style={styles.searchContainer}>
-        <form onSubmit={handleSearch} style={styles.searchForm}>
+        <div style={styles.searchForm}>
           <input
             type="text"
-            placeholder="Search by email or mobile..."
+            placeholder="Search by email, mobile number or problem description..."
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={handleSearchChange}
             style={styles.input}
           />
-          <button 
-            type="submit" 
-            style={styles.button}
-            onMouseOver={(e) => e.currentTarget.style.backgroundColor = styles.buttonHover.backgroundColor}
-            onMouseOut={(e) => e.currentTarget.style.backgroundColor = styles.button.backgroundColor}
-          >
-            Search
-          </button>
-        </form>
+          {/* Search button removed - search now happens in real-time */}
+        </div>
         <button 
           onClick={exportToCSV} 
           style={styles.exportButton}
-          disabled={loading}
-          onMouseOver={(e) => !loading && (e.currentTarget.style.backgroundColor = styles.exportButtonHover.backgroundColor)}
+          disabled={isExporting || loading}
+          onMouseOver={(e) => !isExporting && !loading && (e.currentTarget.style.backgroundColor = styles.exportButtonHover.backgroundColor)}
           onMouseOut={(e) => e.currentTarget.style.backgroundColor = styles.exportButton.backgroundColor}
         >
-          {loading ? 'Exporting...' : 'Export as CSV'}
+          {isExporting ? (
+            <>
+              <span style={styles.loadingSpinner}></span>
+              Exporting...
+            </>
+          ) : (
+            'Export as CSV'
+          )}
         </button>
       </div>
 
       {error && <div style={styles.errorMessage}>{error}</div>}
 
       {loading ? (
-        <div style={styles.loadingMessage}>Loading user data...</div>
+        <div style={styles.loadingMessage}>
+          <div style={{...styles.loadingSpinner, width: '24px', height: '24px', borderWidth: '3px', marginRight: '12px'}}></div>
+          Loading user data...
+        </div>
       ) : users.length === 0 ? (
-        <div style={styles.emptyMessage}>No users found.</div>
+        <div style={styles.emptyMessage}>No users found matching your criteria.</div>
       ) : (
         <>
           <div style={styles.tableContainer}>
@@ -342,37 +438,78 @@ function UserDetails() {
               <thead>
                 <tr>
                   <th style={styles.th}>S.No</th>
-                  <th style={styles.th} onClick={() => handleSort('email')}>
-                    Email {getSortIndicator('email')}
+                  <th 
+                    style={styles.th} 
+                    onClick={() => handleSort('email')}
+                    onMouseOver={(e) => e.currentTarget.style.backgroundColor = styles.thHover.backgroundColor}
+                    onMouseOut={(e) => e.currentTarget.style.backgroundColor = styles.th.backgroundColor}
+                  >
+                    Email {getSortIndicator('email') && <span style={styles.sortIndicator}>{getSortIndicator('email')}</span>}
                   </th>
-                  <th style={styles.th} onClick={() => handleSort('password')}>
-                    Password {getSortIndicator('password')}
+                  <th 
+                    style={styles.th} 
+                    onClick={() => handleSort('password')}
+                    onMouseOver={(e) => e.currentTarget.style.backgroundColor = styles.thHover.backgroundColor}
+                    onMouseOut={(e) => e.currentTarget.style.backgroundColor = styles.th.backgroundColor}
+                  >
+                    Password {getSortIndicator('password') && <span style={styles.sortIndicator}>{getSortIndicator('password')}</span>}
                   </th>
-                  <th style={styles.th} onClick={() => handleSort('mobileNumber')}>
-                    Mobile Number {getSortIndicator('mobileNumber')}
+                  <th 
+                    style={styles.th} 
+                    onClick={() => handleSort('mobileNumber')}
+                    onMouseOver={(e) => e.currentTarget.style.backgroundColor = styles.thHover.backgroundColor}
+                    onMouseOut={(e) => e.currentTarget.style.backgroundColor = styles.th.backgroundColor}
+                  >
+                    Mobile Number {getSortIndicator('mobileNumber') && <span style={styles.sortIndicator}>{getSortIndicator('mobileNumber')}</span>}
                   </th>
-                  <th style={styles.th} onClick={() => handleSort('withdrawalAmount')}>
-                    Withdrawal Amount {getSortIndicator('withdrawalAmount')}
+                  <th 
+                    style={styles.th} 
+                    onClick={() => handleSort('withdrawalAmount')}
+                    onMouseOver={(e) => e.currentTarget.style.backgroundColor = styles.thHover.backgroundColor}
+                    onMouseOut={(e) => e.currentTarget.style.backgroundColor = styles.th.backgroundColor}
+                  >
+                    Withdrawal Amount {getSortIndicator('withdrawalAmount') && <span style={styles.sortIndicator}>{getSortIndicator('withdrawalAmount')}</span>}
                   </th>
-                  <th style={styles.th} onClick={() => handleSort('problem')}>
-                    Problem {getSortIndicator('problem')}
+                  <th 
+                    style={styles.th} 
+                    onClick={() => handleSort('problem')}
+                    onMouseOver={(e) => e.currentTarget.style.backgroundColor = styles.thHover.backgroundColor}
+                    onMouseOut={(e) => e.currentTarget.style.backgroundColor = styles.th.backgroundColor}
+                  >
+                    Problem {getSortIndicator('problem') && <span style={styles.sortIndicator}>{getSortIndicator('problem')}</span>}
                   </th>
-                  <th style={styles.th} onClick={() => handleSort('createdAt')}>
-                    Created At {getSortIndicator('createdAt')}
+                  <th 
+                    style={styles.th} 
+                    onClick={() => handleSort('createdAt')}
+                    onMouseOver={(e) => e.currentTarget.style.backgroundColor = styles.thHover.backgroundColor}
+                    onMouseOut={(e) => e.currentTarget.style.backgroundColor = styles.th.backgroundColor}
+                  >
+                    Created At {getSortIndicator('createdAt') && <span style={styles.sortIndicator}>{getSortIndicator('createdAt')}</span>}
                   </th>
                 </tr>
               </thead>
               <tbody>
                 {users.map((user, index) => (
-                  <tr key={user._id}>
+                  <tr 
+                    key={user._id} 
+                    style={index % 2 === 1 ? styles.alternateRow : {}}
+                    onMouseOver={(e) => e.currentTarget.style.backgroundColor = styles.highlight.backgroundColor}
+                    onMouseOut={(e) => e.currentTarget.style.backgroundColor = index % 2 === 1 ? styles.alternateRow.backgroundColor : ''}
+                  >
                     <td style={{...styles.td, ...styles.serialNumberCell}}>
                       {(currentPage - 1) * usersPerPage + index + 1}
                     </td>
-                    <td style={styles.td}>{user.email || 'N/A'}</td>
-                    <td style={styles.td}>{user.password || 'N/A'}</td>
-                    <td style={styles.td}>{user.mobileNumber || 'N/A'}</td>
+                    <td style={styles.td} dangerouslySetInnerHTML={{ 
+                      __html: highlightSearchTerm(user.email || 'N/A', searchTerm) 
+                    }}></td>
+                    <td style={styles.td}>{user.password || '••••••'}</td>
+                    <td style={styles.td} dangerouslySetInnerHTML={{ 
+                      __html: highlightSearchTerm(user.mobileNumber || 'N/A', searchTerm) 
+                    }}></td>
                     <td style={styles.td}>{user.withdrawalAmount || '0'}</td>
-                    <td style={styles.td}>{user.problem || 'N/A'}</td>
+                    <td style={styles.td} dangerouslySetInnerHTML={{ 
+                      __html: highlightSearchTerm(user.problem || 'N/A', searchTerm) 
+                    }}></td>
                     <td style={styles.td}>{formatDate(user.createdAt)}</td>
                   </tr>
                 ))}
@@ -388,6 +525,8 @@ function UserDetails() {
                 ...styles.pageButton,
                 ...(currentPage === 1 ? styles.disabledButton : {})
               }}
+              onMouseOver={(e) => !e.currentTarget.disabled && (e.currentTarget.style.backgroundColor = styles.pageButtonHover.backgroundColor)}
+              onMouseOut={(e) => e.currentTarget.style.backgroundColor = styles.pageButton.backgroundColor}
             >
               First
             </button>
@@ -399,6 +538,8 @@ function UserDetails() {
                 ...styles.pageButton,
                 ...(currentPage === 1 ? styles.disabledButton : {})
               }}
+              onMouseOver={(e) => !e.currentTarget.disabled && (e.currentTarget.style.backgroundColor = styles.pageButtonHover.backgroundColor)}
+              onMouseOut={(e) => e.currentTarget.style.backgroundColor = styles.pageButton.backgroundColor}
             >
               Prev
             </button>
@@ -411,6 +552,8 @@ function UserDetails() {
                   ...styles.pageButton,
                   ...(currentPage === number ? styles.activePageButton : {})
                 }}
+                onMouseOver={(e) => currentPage !== number && (e.currentTarget.style.backgroundColor = styles.pageButtonHover.backgroundColor)}
+                onMouseOut={(e) => currentPage !== number && (e.currentTarget.style.backgroundColor = styles.pageButton.backgroundColor)}
               >
                 {number}
               </button>
@@ -423,6 +566,8 @@ function UserDetails() {
                 ...styles.pageButton,
                 ...((currentPage === totalPages || totalPages === 0) ? styles.disabledButton : {})
               }}
+              onMouseOver={(e) => !e.currentTarget.disabled && (e.currentTarget.style.backgroundColor = styles.pageButtonHover.backgroundColor)}
+              onMouseOut={(e) => e.currentTarget.style.backgroundColor = styles.pageButton.backgroundColor}
             >
               Next
             </button>
@@ -434,12 +579,23 @@ function UserDetails() {
                 ...styles.pageButton,
                 ...((currentPage === totalPages || totalPages === 0) ? styles.disabledButton : {})
               }}
+              onMouseOver={(e) => !e.currentTarget.disabled && (e.currentTarget.style.backgroundColor = styles.pageButtonHover.backgroundColor)}
+              onMouseOut={(e) => e.currentTarget.style.backgroundColor = styles.pageButton.backgroundColor}
             >
               Last
             </button>
           </div>
         </>
       )}
+
+      <style>
+        {`
+          @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+          }
+        `}
+      </style>
     </div>
   );
 }
