@@ -1,6 +1,5 @@
 import React from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-
 import Home from "./Home";
 import AdminDashboard from "./Admin/AdminDashboard";
 import Login from "./Auth/Login";
@@ -14,12 +13,11 @@ function App() {
     <Router>
       <Routes>
         <Route path="/" element={<Home />} />
-
         {/* Public Routes */}
         <Route path="/login" element={<Login />} />
         <Route path="/registeradmins" element={<Register />} />
         
-        {/* Protected Admin Route */}
+        {/* Protected Admin Routes */}
         <Route
           path="/admin"
           element={
@@ -28,20 +26,22 @@ function App() {
             </ProtectedRoute>
           }
         />
-         <Route 
+        <Route 
           path="/user-details" 
           element={
             <ProtectedRoute>
               <UserDetails />
             </ProtectedRoute>
-          }/>
-          <Route 
+          }
+        />
+        <Route 
           path="/new-user-details" 
           element={
             <ProtectedRoute>
               <NewUserDetails />
             </ProtectedRoute>
-          }/>   
+          }
+        />   
       </Routes>
     </Router>
   );
