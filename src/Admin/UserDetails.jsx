@@ -13,26 +13,15 @@ function UserDetails() {
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      
-      // Try to get ALL users by explicitly setting a very large limit
-      // API might have a default limit of 10
-      const res = await axios.get(
-        'https://backend-4bet.vercel.app/usersdetails?limit=1000',
-        {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem('token')}`,
-          }
+      const res = await axios.get('https://backend-4bet.vercel.app/usersdetails', {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('token')}`,
         }
-      );
+      });
 
       console.log('API Response data:', res.data);
       
-      // Get the users from the response
-      let fetchedUsers = [];
-      if (res.data && res.data.users) {
-        fetchedUsers = res.data.users;
-      }
-      
+      let fetchedUsers = res.data.users || [];
       console.log('Total users fetched:', fetchedUsers.length);
       
       setUsers(fetchedUsers);
@@ -56,7 +45,8 @@ function UserDetails() {
         return "N/A";
       }
       
-      return date.toLocaleString();
+      // Format to local date and time
+      return date.toLocaleString(); // Adjust this if you want a specific format
     } catch (e) {
       return "N/A";
     }
@@ -73,8 +63,6 @@ function UserDetails() {
       fontWeight: 'bold',
       color: '#333',
       marginBottom: '20px',
-      display: 'flex',
-      alignItems: 'center',
     },
     tableWrapper: {
       height: '650px',
@@ -130,39 +118,11 @@ function UserDetails() {
       fontSize: '16px',
       fontWeight: 'bold',
     },
-    refreshButton: {
-      padding: '8px 16px',
-      backgroundColor: '#4CAF50',
-      color: 'white',
-      border: 'none',
-      borderRadius: '4px',
-      cursor: 'pointer',
-      marginLeft: '10px',
-      fontWeight: 'normal',
-    },
-    showAllText: {
-      fontSize: '16px',
-      marginBottom: '10px',
-      color: '#e74c3c',
-    }
   };
 
   return (
     <div style={styles.container}>
-      <h1 style={styles.title}>
-        User Details
-        <button 
-          style={styles.refreshButton} 
-          onClick={fetchUsers}
-          disabled={loading}
-        >
-          {loading ? 'Loading...' : 'Refresh Data'}
-        </button>
-      </h1>
-      
-      <div style={styles.showAllText}>
-        Attempting to show ALL users (no limit)
-      </div>
+      <h1 style={styles.title}>User Details</h1>
       
       {error && (
         <div style={styles.errorMessage}>
