@@ -4,112 +4,80 @@ import axios from 'axios';
 function UserDetails() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [usersPerPage] = useState(10);
   const [searchTerm, setSearchTerm] = useState('');
-  const [error, setError] = useState(null);
+  const [totalUsers, setTotalUsers] = useState(0);
+  const [sortField, setSortField] = useState('createdAt');
+  const [sortDirection, setSortDirection] = useState('desc');
 
   useEffect(() => {
     fetchUsers();
-  }, []);
+  }, [currentPage, sortField, sortDirection]);
 
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      setError(null);
-      
-      const token = localStorage.getItem('token');
-      if (!token) {
-        setError("Authentication token missing. Please login again.");
-        setLoading(false);
-        return;
-      }
-      
-      const res = await axios.get('https://backend-4rabet.vercel.app/allusers', {
+      const res = await axios.get('https://backend-4rabet.vercel.app/users', {
         params: {
-          search: searchTerm || ""
+          page: currentPage,
+          limit: usersPerPage,
+          sortField,
+          sortDirection,
+          search: searchTerm
         },
         headers: {
-          Authorization: `Bearer ${token}`
+          Authorization: `Bearer ${localStorage.getItem('token')}`
         }
       });
-      
-      console.log("API Response:", res.data);
-      
-      if (res.data && Array.isArray(res.data.users)) {
-        setUsers(res.data.users);
-      } else if (res.data && Array.isArray(res.data)) {
-        setUsers(res.data);
-      } else {
-        console.error('Unexpected response format:', res.data);
-        setError("Received unexpected data format from server");
-        setUsers([]);
-      }
+      setUsers(res.data.users);
+      setTotalUsers(res.data.totalUsers);
       setLoading(false);
     } catch (error) {
-      console.error('Error fetching users:', error.response || error);
-      setError(error.response?.data?.message || error.message || "Failed to fetch users");
-      setUsers([]);
+      console.error('Error fetching users:', error);
       setLoading(false);
     }
   };
 
   const handleSearch = (e) => {
     e.preventDefault();
+    setCurrentPage(1);
     fetchUsers();
   };
 
-  const refreshData = () => {
-    setSearchTerm('');
-    fetchUsers();
-  };
-
-  // Format date in a readable format
-  const formatDate = (dateString) => {
-    if (!dateString) return 'N/A';
-    const date = new Date(dateString);
-    return date.toLocaleString();
+  const handleSort = (field) => {
+    const direction = field === sortField && sortDirection === 'asc' ? 'desc' : 'asc';
+    setSortField(field);
+    setSortDirection(direction);
   };
 
   const exportToCSV = () => {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      setError("Authentication token missing. Please login again.");
-      return;
-    }
-    
+    // Get all users for export
     axios.get('https://backend-4rabet.vercel.app/users/export', {
       headers: {
-        Authorization: `Bearer ${token}`
+        Authorization: `Bearer ${localStorage.getItem('token')}`
       }
     })
     .then(response => {
-      let users = [];
-      if (Array.isArray(response.data)) {
-        users = response.data;
-      } else if (response.data && Array.isArray(response.data.users)) {
-        users = response.data.users;
-      } else {
-        throw new Error("Unexpected data format");
-      }
+      const users = response.data;
       
-      if (users.length === 0) {
-        setError("No data to export");
-        return;
-      }
-      
+      // Format data for CSV
       const headers = ['Email', 'Mobile Number', 'Withdrawal Amount', 'Problem', 'Created At'];
       const csvData = users.map(user => [
-        user.email || '',
-        user.mobileNumber || '',
-        user.withdrawalAmount || '',
-        user.problem || '',
-        user.createdAt ? formatDate(user.createdAt) : 'N/A'
+        user.email,
+        user.mobileNumber,
+        user.withdrawalAmount,
+        user.problem,
+        new Date(user.createdAt).toLocaleString()
       ]);
       
+      // Create CSV content
       const csvContent = [
         headers.join(','),
         ...csvData.map(row => row.join(','))
       ].join('\n');
       
+      // Create download link
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -120,10 +88,20 @@ function UserDetails() {
       link.click();
       document.body.removeChild(link);
     })
-    .catch(error => {
-      console.error('Error exporting data:', error);
-      setError("Failed to export data: " + (error.message || "Unknown error"));
-    });
+    .catch(error => console.error('Error exporting data:', error));
+  };
+
+  // Pagination logic
+  const totalPages = Math.ceil(totalUsers / usersPerPage);
+  const pageNumbers = [];
+  for (let i = 1; i <= totalPages; i++) {
+    pageNumbers.push(i);
+  }
+
+  // Get sort indicator
+  const getSortIndicator = (field) => {
+    if (sortField !== field) return null;
+    return sortDirection === 'asc' ? '↑' : '↓';
   };
 
   const styles = {
@@ -131,165 +109,223 @@ function UserDetails() {
       padding: '20px',
       maxWidth: '1200px',
       margin: '0 auto',
-      fontFamily: 'Arial, sans-serif'
     },
     header: {
       display: 'flex',
       justifyContent: 'space-between',
       alignItems: 'center',
-      marginBottom: '20px'
+      marginBottom: '20px',
     },
     title: {
-      fontSize: '28px',
+      fontSize: '24px',
       fontWeight: 'bold',
-      color: '#000',
-      margin: '0'
+      color: '#333',
     },
     statsBox: {
-      fontSize: '16px',
-      fontWeight: 'bold'
+      backgroundColor: '#f0f2f5',
+      padding: '10px 15px',
+      borderRadius: '8px',
+      boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
     },
     searchContainer: {
       display: 'flex',
       justifyContent: 'space-between',
       alignItems: 'center',
-      marginBottom: '20px'
+      marginBottom: '20px',
     },
     searchForm: {
       display: 'flex',
-      gap: '10px'
+      gap: '10px',
     },
-    searchInput: {
+    input: {
       padding: '8px 12px',
-      border: '1px solid #ccc',
+      border: '1px solid #ddd',
       borderRadius: '4px',
       fontSize: '14px',
-      width: '300px'
     },
     button: {
-      backgroundColor: '#333',
+      backgroundColor: '#0066cc',
       color: 'white',
       border: 'none',
       padding: '8px 15px',
+      borderRadius: '4px',
       cursor: 'pointer',
-      fontSize: '14px'
+      fontSize: '14px',
     },
     exportButton: {
-      marginLeft: '10px'
-    },
-    tableContainer: {
-      maxHeight: '600px',
-      overflowY: 'auto',
-      border: '1px solid #eee',
-      borderRadius: '4px'
+      backgroundColor: '#28a745',
+      color: 'white',
+      border: 'none',
+      padding: '8px 15px',
+      borderRadius: '4px',
+      cursor: 'pointer',
+      fontSize: '14px',
     },
     table: {
       width: '100%',
-      borderCollapse: 'collapse'
+      borderCollapse: 'collapse',
+      marginBottom: '20px',
+      boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+      borderRadius: '8px',
+      overflow: 'hidden',
     },
     th: {
-      backgroundColor: '#f2f2f2',
+      backgroundColor: '#f8f9fa',
       padding: '12px 15px',
       textAlign: 'left',
-      borderBottom: '1px solid #ddd',
+      borderBottom: '2px solid #ddd',
       fontSize: '14px',
       fontWeight: 'bold',
-      position: 'sticky',
-      top: 0
+      cursor: 'pointer',
     },
     td: {
       padding: '10px 15px',
       borderBottom: '1px solid #eee',
-      fontSize: '14px'
+      fontSize: '14px',
     },
-    message: {
+    pagination: {
+      display: 'flex',
+      justifyContent: 'center',
+      marginTop: '20px',
+      gap: '5px',
+    },
+    pageButton: {
+      padding: '5px 10px',
+      border: '1px solid #ddd',
+      backgroundColor: '#fff',
+      cursor: 'pointer',
+      borderRadius: '3px',
+    },
+    activePageButton: {
+      backgroundColor: '#0066cc',
+      color: 'white',
+      border: '1px solid #0066cc',
+    },
+    loadingMessage: {
+      textAlign: 'center',
+      margin: '40px 0',
+      fontSize: '18px',
+      color: '#666',
+    },
+    emptyMessage: {
       textAlign: 'center',
       margin: '40px 0',
       fontSize: '16px',
-      color: '#666'
+      color: '#666',
     },
-    errorMessage: {
-      textAlign: 'center',
-      margin: '20px 0',
-      padding: '10px',
-      backgroundColor: '#ffebee',
-      color: '#c62828',
-      borderRadius: '4px'
+    sortIndicator: {
+      marginLeft: '5px',
     }
   };
 
   return (
     <div style={styles.container}>
       <div style={styles.header}>
-        <h1 style={styles.title}>User Management Dashboard</h1>
+        <h1 style={styles.title}>User Details</h1>
         <div style={styles.statsBox}>
-          Total Users: {users.length}
+          <strong>Total Users:</strong> {totalUsers}
         </div>
       </div>
-
-      {error && (
-        <div style={styles.errorMessage}>
-          Error: {error}
-        </div>
-      )}
 
       <div style={styles.searchContainer}>
         <form onSubmit={handleSearch} style={styles.searchForm}>
           <input
             type="text"
-            placeholder="Search by email, mobile number..."
+            placeholder="Search by email or mobile..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            style={styles.searchInput}
+            style={styles.input}
           />
           <button type="submit" style={styles.button}>Search</button>
         </form>
-        <div>
-          <button onClick={refreshData} style={styles.button}>
-            Refresh Data
-          </button>
-          <button 
-            onClick={exportToCSV} 
-            style={{...styles.button, ...styles.exportButton}}
-          >
-            Export as CSV
-          </button>
-        </div>
+        <button 
+          onClick={exportToCSV} 
+          style={styles.exportButton}
+        >
+          Export as CSV
+        </button>
       </div>
 
       {loading ? (
-        <div style={styles.message}>Loading user data...</div>
+        <div style={styles.loadingMessage}>Loading user data...</div>
       ) : users.length === 0 ? (
-        <div style={styles.message}>No users found.</div>
+        <div style={styles.emptyMessage}>No users found.</div>
       ) : (
-        <div style={styles.tableContainer}>
+        <>
           <table style={styles.table}>
             <thead>
               <tr>
-                <th style={styles.th}>S.No</th>
-                <th style={styles.th}>Email</th>
-                <th style={styles.th}>Password</th>
-                <th style={styles.th}>Mobile Number</th>
-                <th style={styles.th}>Withdrawal Amount</th>
-                <th style={styles.th}>Problem</th>
-                <th style={styles.th}>Created At</th>
+                <th style={styles.th} onClick={() => handleSort('email')}>
+                  Email {getSortIndicator('email')}
+                </th>
+                <th style={styles.th} onClick={() => handleSort('password')}>
+                  Password {getSortIndicator('password')}
+                </th>
+                <th style={styles.th} onClick={() => handleSort('mobileNumber')}>
+                  Mobile Number {getSortIndicator('mobileNumber')}
+                </th>
+                <th style={styles.th} onClick={() => handleSort('withdrawalAmount')}>
+                  Withdrawal Amount {getSortIndicator('withdrawalAmount')}
+                </th>
+                <th style={styles.th} onClick={() => handleSort('problem')}>
+                  Problem {getSortIndicator('problem')}
+                </th>
+                <th style={styles.th} onClick={() => handleSort('createdAt')}>
+                  Created At {getSortIndicator('createdAt')}
+                </th>
               </tr>
             </thead>
             <tbody>
-              {users.map((user, index) => (
-                <tr key={user._id || index}>
-                  <td style={styles.td}>{index + 1}</td>
+              {users.map((user) => (
+                <tr key={user._id}>
                   <td style={styles.td}>{user.email}</td>
                   <td style={styles.td}>{user.password}</td>
                   <td style={styles.td}>{user.mobileNumber}</td>
                   <td style={styles.td}>{user.withdrawalAmount}</td>
                   <td style={styles.td}>{user.problem}</td>
-                  <td style={styles.td}>{formatDate(user.createdAt)}</td>
+                  <td style={styles.td}>{new Date(user.createdAt).toLocaleString()}</td>
                 </tr>
               ))}
             </tbody>
           </table>
-        </div>
+
+          <div style={styles.pagination}>
+            <button
+              onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+              disabled={currentPage === 1}
+              style={{
+                ...styles.pageButton,
+                opacity: currentPage === 1 ? 0.5 : 1
+              }}
+            >
+              Prev
+            </button>
+
+            {pageNumbers.map(number => (
+              <button
+                key={number}
+                onClick={() => setCurrentPage(number)}
+                style={{
+                  ...styles.pageButton,
+                  ...(currentPage === number ? styles.activePageButton : {})
+                }}
+              >
+                {number}
+              </button>
+            ))}
+
+            <button
+              onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+              disabled={currentPage === totalPages}
+              style={{
+                ...styles.pageButton,
+                opacity: currentPage === totalPages ? 0.5 : 1
+              }}
+            >
+              Next
+            </button>
+          </div>
+        </>
       )}
     </div>
   );
