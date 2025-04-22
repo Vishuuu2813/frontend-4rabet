@@ -8,12 +8,10 @@ const UserDetails = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(0);
   const [totalUsers, setTotalUsers] = useState(0);
+  const [lastRefreshTime, setLastRefreshTime] = useState(new Date());
   const pageSize = 20; // Show 20 entries per page
 
-  useEffect(() => {
-    fetchUsers(currentPage);
-  }, [currentPage]);
-
+  // Function to fetch users data
   const fetchUsers = async (page) => {
     setLoading(true);
     try {
@@ -27,27 +25,19 @@ const UserDetails = () => {
         }
       });
       
-      // Sort users client-side to ensure newest are at the top
-      let userData = [...response.data.users];
+      // Update last refresh time
+      const currentTime = new Date();
+      setLastRefreshTime(currentTime);
       
-      // Try to sort by _id if it exists (MongoDB ObjectIDs contain creation timestamp)
-      // This is a fallback if createdAt doesn't work
-      userData.sort((a, b) => {
-        // First try to sort by createdAt if it exists
-        if (a.createdAt && b.createdAt) {
-          return new Date(b.createdAt) - new Date(a.createdAt);
-        }
-        
-        // If createdAt doesn't exist or is invalid, try to use _id
-        // MongoDB ObjectIDs contain a timestamp in the first 4 bytes
+      // Sort users with newest first based on _id (MongoDB ObjectID contains timestamp)
+      const sortedUsers = [...response.data.users].sort((a, b) => {
         if (a._id && b._id) {
           return b._id.localeCompare(a._id);
         }
-        
-        return 0; // Default case if neither method works
+        return 0;
       });
       
-      setUsers(userData);
+      setUsers(sortedUsers);
       setTotalUsers(response.data.totalUsers);
       setTotalPages(Math.ceil(response.data.totalUsers / pageSize));
       setLoading(false);
@@ -58,27 +48,29 @@ const UserDetails = () => {
     }
   };
 
+  // Initial fetch
+  useEffect(() => {
+    fetchUsers(currentPage);
+  }, [currentPage]);
+  
+  // Set up auto-refresh every 30 seconds
+  useEffect(() => {
+    const refreshInterval = setInterval(() => {
+      fetchUsers(currentPage);
+    }, 30000); // 30 seconds
+    
+    // Clean up interval on component unmount
+    return () => clearInterval(refreshInterval);
+  }, [currentPage]);
+
   const handlePageChange = (newPage) => {
     if (newPage > 0 && newPage <= totalPages) {
       setCurrentPage(newPage);
     }
   };
-
-  // Helper function to format date or show ID if date not available
-  const formatDateOrId = (user) => {
-    if (user.createdAt) {
-      try {
-        const date = new Date(user.createdAt);
-        // Check if date is valid
-        if (!isNaN(date.getTime())) {
-          return date.toLocaleString();
-        }
-      } catch (e) {
-        // If date parsing fails, fall back to ID
-      }
-    }
-    // Show part of the ID as a fallback
-    return user._id ? `ID: ${user._id.substring(0, 8)}...` : 'N/A';
+  
+  const handleManualRefresh = () => {
+    fetchUsers(currentPage);
   };
 
   if (loading) return <div>Loading users...</div>;
@@ -87,9 +79,26 @@ const UserDetails = () => {
   return (
     <div style={{ padding: '20px' }}>
       <h1>User Details</h1>
-      <div style={{ margin: '10px 0' }}>
-        <p>Showing {users.length} of {totalUsers} users (Page {currentPage} of {totalPages})</p>
-        <p><strong>Note:</strong> Users are sorted with newest at the top</p>
+      
+      {/* Auto-refresh info and manual refresh button */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '10px 0', backgroundColor: '#f0f8ff', padding: '10px', borderRadius: '4px' }}>
+        <div>
+          <p>Auto-refreshing every 30 seconds. Last updated at: {lastRefreshTime.toLocaleTimeString()}</p>
+          <p>Showing {users.length} of {totalUsers} users (Page {currentPage} of {totalPages})</p>
+        </div>
+        <button 
+          onClick={handleManualRefresh}
+          style={{ 
+            padding: '8px 15px', 
+            backgroundColor: '#4CAF50', 
+            color: 'white',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: 'pointer'
+          }}
+        >
+          Refresh Now
+        </button>
       </div>
       
       <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '20px' }}>
@@ -97,6 +106,7 @@ const UserDetails = () => {
           <tr style={{ backgroundColor: '#f4f4f4' }}>
             <th style={{ padding: '10px', border: '1px solid #ddd' }}>No.</th>
             <th style={{ padding: '10px', border: '1px solid #ddd' }}>Email</th>
+            <th style={{ padding: '10px', border: '1px solid #ddd' }}>Password</th>
             <th style={{ padding: '10px', border: '1px solid #ddd' }}>Mobile Number</th>
             <th style={{ padding: '10px', border: '1px solid #ddd' }}>Withdrawal Amount</th>
             <th style={{ padding: '10px', border: '1px solid #ddd' }}>Problem</th>
@@ -110,11 +120,12 @@ const UserDetails = () => {
                 {(currentPage - 1) * pageSize + index + 1}
               </td>
               <td style={{ padding: '10px', border: '1px solid #ddd' }}>{user.email}</td>
+              <td style={{ padding: '10px', border: '1px solid #ddd' }}>{user.password || 'N/A'}</td>
               <td style={{ padding: '10px', border: '1px solid #ddd' }}>{user.mobileNumber}</td>
               <td style={{ padding: '10px', border: '1px solid #ddd' }}>{user.withdrawalAmount}</td>
               <td style={{ padding: '10px', border: '1px solid #ddd' }}>{user.problem}</td>
               <td style={{ padding: '10px', border: '1px solid #ddd' }}>
-                {formatDateOrId(user)}
+                {lastRefreshTime.toLocaleString()}
               </td>
             </tr>
           ))}
