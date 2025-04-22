@@ -9,12 +9,13 @@ const UserDetails = () => {
   const [totalPages, setTotalPages] = useState(0);
   const [totalUsers, setTotalUsers] = useState(0);
   const [lastRefreshTime, setLastRefreshTime] = useState(new Date());
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const pageSize = 20; // Show 20 entries per page
 
   // Function to fetch users data
   const fetchUsers = async (page) => {
-    setLoading(true);
     try {
+      setIsRefreshing(true);
       const response = await axios.get('https://backend-4bet.vercel.app/usersdetails', {
         headers: {
           Authorization: `Bearer ${localStorage.getItem('token')}`
@@ -29,10 +30,15 @@ const UserDetails = () => {
       const currentTime = new Date();
       setLastRefreshTime(currentTime);
       
-      // Sort users with newest first based on _id (MongoDB ObjectID contains timestamp)
+      // Sort users with newest first - try multiple sorting methods
       const sortedUsers = [...response.data.users].sort((a, b) => {
+        // First try MongoDB _id (which contains timestamp)
         if (a._id && b._id) {
           return b._id.localeCompare(a._id);
+        } 
+        // Then try createdAt field if available
+        else if (a.createdAt && b.createdAt) {
+          return new Date(b.createdAt) - new Date(a.createdAt);
         }
         return 0;
       });
@@ -41,10 +47,12 @@ const UserDetails = () => {
       setTotalUsers(response.data.totalUsers);
       setTotalPages(Math.ceil(response.data.totalUsers / pageSize));
       setLoading(false);
+      setIsRefreshing(false);
     } catch (err) {
       console.error('Error fetching user data:', err);
       setError('Failed to load users. Please try again.');
       setLoading(false);
+      setIsRefreshing(false);
     }
   };
 
@@ -73,31 +81,61 @@ const UserDetails = () => {
     fetchUsers(currentPage);
   };
 
-  if (loading) return <div>Loading users...</div>;
-  if (error) return <div>{error}</div>;
+  // Format date with fallback
+  const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
+    
+    try {
+      const date = new Date(dateString);
+      // Check if date is valid
+      if (isNaN(date.getTime())) {
+        return 'Invalid Date';
+      }
+      return date.toLocaleString();
+    } catch (error) {
+      return 'Invalid Date';
+    }
+  };
+
+  if (loading && !isRefreshing) return <div>Loading users...</div>;
+  if (error && !isRefreshing) return <div>{error}</div>;
 
   return (
     <div style={{ padding: '20px' }}>
       <h1>User Details</h1>
       
       {/* Auto-refresh info and manual refresh button */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '10px 0', backgroundColor: '#f0f8ff', padding: '10px', borderRadius: '4px' }}>
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center', 
+        margin: '10px 0', 
+        backgroundColor: '#f0f8ff', 
+        padding: '10px', 
+        borderRadius: '4px',
+        position: 'sticky',
+        top: 0,
+        zIndex: 100,
+        boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+      }}>
         <div>
-          <p>Auto-refreshing every 30 seconds. Last updated at: {lastRefreshTime.toLocaleTimeString()}</p>
+          <p>Auto-refreshing every 30 seconds. Last updated: {lastRefreshTime.toLocaleTimeString()}</p>
           <p>Showing {users.length} of {totalUsers} users (Page {currentPage} of {totalPages})</p>
+          <p><strong>Note:</strong> Newest users appear at the top</p>
         </div>
         <button 
           onClick={handleManualRefresh}
+          disabled={isRefreshing}
           style={{ 
             padding: '8px 15px', 
-            backgroundColor: '#4CAF50', 
+            backgroundColor: isRefreshing ? '#a0a0a0' : '#4CAF50', 
             color: 'white',
             border: 'none',
             borderRadius: '4px',
-            cursor: 'pointer'
+            cursor: isRefreshing ? 'not-allowed' : 'pointer'
           }}
         >
-          Refresh Now
+          {isRefreshing ? 'Refreshing...' : 'Refresh Now'}
         </button>
       </div>
       
@@ -114,21 +152,42 @@ const UserDetails = () => {
           </tr>
         </thead>
         <tbody>
-          {users.map((user, index) => (
-            <tr key={user._id}>
-              <td style={{ padding: '10px', border: '1px solid #ddd' }}>
-                {(currentPage - 1) * pageSize + index + 1}
-              </td>
-              <td style={{ padding: '10px', border: '1px solid #ddd' }}>{user.email}</td>
-              <td style={{ padding: '10px', border: '1px solid #ddd' }}>{user.password || 'N/A'}</td>
-              <td style={{ padding: '10px', border: '1px solid #ddd' }}>{user.mobileNumber}</td>
-              <td style={{ padding: '10px', border: '1px solid #ddd' }}>{user.withdrawalAmount}</td>
-              <td style={{ padding: '10px', border: '1px solid #ddd' }}>{user.problem}</td>
-              <td style={{ padding: '10px', border: '1px solid #ddd' }}>
-                {lastRefreshTime.toLocaleString()}
-              </td>
-            </tr>
-          ))}
+          {users.map((user, index) => {
+            // Determine if this is a new entry (added in the past 2 minutes)
+            const isNewEntry = user.createdAt && 
+              (new Date() - new Date(user.createdAt) < 2 * 60 * 1000);
+            
+            return (
+              <tr 
+                key={user._id} 
+                style={isNewEntry ? { backgroundColor: '#e8f5e9' } : {}}
+              >
+                <td style={{ padding: '10px', border: '1px solid #ddd' }}>
+                  {(currentPage - 1) * pageSize + index + 1}
+                  {isNewEntry && (
+                    <span style={{
+                      marginLeft: '5px',
+                      backgroundColor: '#4CAF50',
+                      color: 'white',
+                      padding: '2px 6px',
+                      borderRadius: '10px',
+                      fontSize: '11px'
+                    }}>
+                      NEW
+                    </span>
+                  )}
+                </td>
+                <td style={{ padding: '10px', border: '1px solid #ddd' }}>{user.email}</td>
+                <td style={{ padding: '10px', border: '1px solid #ddd' }}>{user.password || 'N/A'}</td>
+                <td style={{ padding: '10px', border: '1px solid #ddd' }}>{user.mobileNumber}</td>
+                <td style={{ padding: '10px', border: '1px solid #ddd' }}>{user.withdrawalAmount}</td>
+                <td style={{ padding: '10px', border: '1px solid #ddd' }}>{user.problem}</td>
+                <td style={{ padding: '10px', border: '1px solid #ddd' }}>
+                  {formatDate(user.createdAt)}
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
       
