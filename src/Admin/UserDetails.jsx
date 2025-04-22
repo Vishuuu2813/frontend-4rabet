@@ -14,7 +14,7 @@ function UserDetails() {
     try {
       setLoading(true);
       const res = await axios.get(
-        'https://backend-4bet.vercel.app/usersdetails',
+        'https://backend-4bet.vercel.app/usersdetails', // No limit parameter
         {
           headers: {
             Authorization: `Bearer ${localStorage.getItem('token')}`,
