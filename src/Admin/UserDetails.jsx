@@ -1,412 +1,334 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 
-export default function UserDetailsPage() {
+function UserDetails() {
   const [users, setUsers] = useState([]);
-  const [totalUsers, setTotalUsers] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(10);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [usersPerPage] = useState(10);
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterBy, setFilterBy] = useState('email');
-  const [exportLoading, setExportLoading] = useState(false);
-  
-  const fetchTotalUsers = async () => {
-    try {
-      const response = await axios.get('https://backend-4bet.vercel.app/usersdetails/count');
-      setTotalUsers(response.data.count || 0);
-    } catch (err) {
-      console.error('Error fetching total users count:', err);
-      setError('Failed to fetch total users count');
-    }
-  };
+  const [totalUsers, setTotalUsers] = useState(0);
+  const [sortField, setSortField] = useState('createdAt');
+  const [sortDirection, setSortDirection] = useState('desc');
+
+  useEffect(() => {
+    fetchUsers();
+  }, [currentPage, sortField, sortDirection]);
 
   const fetchUsers = async () => {
-    setLoading(true);
     try {
-      // Using only the base URL without any parameters
-      const response = await axios.get('https://backend-4bet.vercel.app/usersdetails');
-      
-      // Check if data is an array or has a specific property containing the array
-      const data = response.data;
-      const userArray = Array.isArray(data) ? data : 
-                        (data.users ? data.users : 
-                        (data.data ? data.data : []));
-      
-      setUsers(userArray);
-      setError(null);
-    } catch (err) {
-      console.error('Error fetching users:', err);
-      setError('Failed to fetch users data');
-      setUsers([]);
-    } finally {
+      setLoading(true);
+      const res = await axios.get('https://backend-4rabet.vercel.app/usersdetails', {
+        params: {
+          page: currentPage,
+          limit: usersPerPage,
+          sortField,
+          sortDirection,
+          search: searchTerm
+        },
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      setUsers(res.data.users);
+      setTotalUsers(res.data.totalUsers);
+      setLoading(false);
+    } catch (error) {
+      console.error('Error fetching users:', error);
       setLoading(false);
     }
   };
 
-  const exportToCsv = async () => {
-    setExportLoading(true);
-    try {
-      const response = await axios.get('https://backend-4bet.vercel.app/users/export', {
-        responseType: 'blob'
-      });
-      
-      // Create blob link to download
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', `users_export_${new Date().toISOString().slice(0,10)}.csv`);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(url);
-      
-    } catch (err) {
-      console.error('Error exporting CSV:', err);
-      alert('Failed to export CSV');
-    } finally {
-      setExportLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchTotalUsers();
-  }, []);
-
-  useEffect(() => {
-    fetchUsers();
-  }, []);
-
   const handleSearch = (e) => {
     e.preventDefault();
-    setPage(1);
+    setCurrentPage(1);
     fetchUsers();
   };
 
-  const handleReset = () => {
-    setSearchTerm('');
-    setFilterBy('email');
-    setPage(1);
-    fetchUsers();
+  const handleSort = (field) => {
+    const direction = field === sortField && sortDirection === 'asc' ? 'desc' : 'asc';
+    setSortField(field);
+    setSortDirection(direction);
   };
 
-  const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleString();
+  const exportToCSV = () => {
+    // Get all users for export
+    axios.get('https://backend-4rabet.vercel.app/users/export', {
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem('token')}`
+      }
+    })
+    .then(response => {
+      const users = response.data;
+      
+      // Format data for CSV
+      const headers = ['Email', 'Mobile Number', 'Withdrawal Amount', 'Problem', 'Created At'];
+      const csvData = users.map(user => [
+        user.email,
+        user.mobileNumber,
+        user.withdrawalAmount,
+        user.problem,
+        new Date(user.createdAt).toLocaleString()
+      ]);
+      
+      // Create CSV content
+      const csvContent = [
+        headers.join(','),
+        ...csvData.map(row => row.join(','))
+      ].join('\n');
+      
+      // Create download link
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.setAttribute('href', url);
+      link.setAttribute('download', '4rabet_users.csv');
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    })
+    .catch(error => console.error('Error exporting data:', error));
   };
 
-  // Client-side pagination logic
-  const indexOfLastUser = page * limit;
-  const indexOfFirstUser = indexOfLastUser - limit;
-  const currentUsers = users.slice(indexOfFirstUser, indexOfLastUser);
-  const totalPages = Math.ceil(users.length / limit);
+  // Pagination logic
+  const totalPages = Math.ceil(totalUsers / usersPerPage);
+  const pageNumbers = [];
+  for (let i = 1; i <= totalPages; i++) {
+    pageNumbers.push(i);
+  }
+
+  // Get sort indicator
+  const getSortIndicator = (field) => {
+    if (sortField !== field) return null;
+    return sortDirection === 'asc' ? '↑' : '↓';
+  };
 
   const styles = {
     container: {
-      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", sans-serif',
-      margin: 0,
       padding: '20px',
-      backgroundColor: '#f5f5f5',
-      color: '#333',
-      minHeight: '100vh'
-    },
-    card: {
       maxWidth: '1200px',
       margin: '0 auto',
-      backgroundColor: 'white',
-      padding: '20px',
-      borderRadius: '8px',
-      boxShadow: '0 2px 10px rgba(0, 0, 0, 0.1)'
     },
     header: {
       display: 'flex',
       justifyContent: 'space-between',
       alignItems: 'center',
       marginBottom: '20px',
-      flexWrap: 'wrap',
-      gap: '10px'
     },
     title: {
-      color: '#2c3e50',
-      margin: '0',
       fontSize: '24px',
-      fontWeight: 'bold'
-    },
-    stats: {
-      backgroundColor: '#3498db',
-      color: 'white',
-      padding: '10px 15px',
-      borderRadius: '6px',
       fontWeight: 'bold',
-      boxShadow: '0 2px 5px rgba(0, 0, 0, 0.1)'
+      color: '#333',
+    },
+    statsBox: {
+      backgroundColor: '#f0f2f5',
+      padding: '10px 15px',
+      borderRadius: '8px',
+      boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
     },
     searchContainer: {
       display: 'flex',
-      gap: '10px',
+      justifyContent: 'space-between',
+      alignItems: 'center',
       marginBottom: '20px',
-      flexWrap: 'wrap'
+    },
+    searchForm: {
+      display: 'flex',
+      gap: '10px',
     },
     input: {
-      padding: '10px',
+      padding: '8px 12px',
       border: '1px solid #ddd',
       borderRadius: '4px',
-      flexGrow: '1',
-      minWidth: '200px'
-    },
-    select: {
-      padding: '10px',
-      border: '1px solid #ddd',
-      borderRadius: '4px'
+      fontSize: '14px',
     },
     button: {
-      backgroundColor: '#3498db',
+      backgroundColor: '#0066cc',
       color: 'white',
       border: 'none',
-      padding: '10px 15px',
+      padding: '8px 15px',
       borderRadius: '4px',
       cursor: 'pointer',
-      transition: 'background-color 0.3s'
-    },
-    buttonHover: {
-      backgroundColor: '#2980b9'
-    },
-    resetButton: {
-      backgroundColor: '#95a5a6',
-      color: 'white',
-      border: 'none',
-      padding: '10px 15px',
-      borderRadius: '4px',
-      cursor: 'pointer',
-      transition: 'background-color 0.3s'
+      fontSize: '14px',
     },
     exportButton: {
-      backgroundColor: '#27ae60',
+      backgroundColor: '#28a745',
       color: 'white',
       border: 'none',
-      padding: '10px 15px',
+      padding: '8px 15px',
       borderRadius: '4px',
       cursor: 'pointer',
-      transition: 'background-color 0.3s'
+      fontSize: '14px',
     },
     table: {
       width: '100%',
       borderCollapse: 'collapse',
-      marginTop: '20px',
-      boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
+      marginBottom: '20px',
+      boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+      borderRadius: '8px',
+      overflow: 'hidden',
     },
     th: {
+      backgroundColor: '#f8f9fa',
       padding: '12px 15px',
       textAlign: 'left',
-      borderBottom: '1px solid #ddd',
-      backgroundColor: '#f2f2f2',
-      fontWeight: 'bold'
+      borderBottom: '2px solid #ddd',
+      fontSize: '14px',
+      fontWeight: 'bold',
+      cursor: 'pointer',
     },
     td: {
-      padding: '12px 15px',
-      textAlign: 'left',
-      borderBottom: '1px solid #ddd'
-    },
-    tr: {
-      ':hover': {
-        backgroundColor: '#f5f5f5'
-      }
+      padding: '10px 15px',
+      borderBottom: '1px solid #eee',
+      fontSize: '14px',
     },
     pagination: {
       display: 'flex',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      marginTop: '20px'
-    },
-    paginationControls: {
-      display: 'flex',
-      gap: '5px'
-    },
-    paginationButton: {
-      padding: '5px 10px',
-      border: 'none',
-      borderRadius: '4px',
-      cursor: 'pointer',
-      backgroundColor: '#3498db',
-      color: 'white'
-    },
-    paginationDisabled: {
-      backgroundColor: '#ccc',
-      cursor: 'not-allowed'
-    },
-    paginationInfo: {
-      display: 'flex',
-      alignItems: 'center',
-      gap: '10px'
-    },
-    currentPage: {
-      padding: '5px 10px',
-      backgroundColor: '#f2f2f2',
-      borderRadius: '4px'
-    },
-    loading: {
-      display: 'flex',
       justifyContent: 'center',
-      alignItems: 'center',
-      height: '200px'
+      marginTop: '20px',
+      gap: '5px',
     },
-    error: {
-      backgroundColor: '#ffebee',
-      border: '1px solid #ffcdd2',
-      color: '#c62828',
-      padding: '10px 15px',
-      borderRadius: '4px',
-      marginBottom: '20px'
+    pageButton: {
+      padding: '5px 10px',
+      border: '1px solid #ddd',
+      backgroundColor: '#fff',
+      cursor: 'pointer',
+      borderRadius: '3px',
     },
-    noData: {
-      backgroundColor: '#fff8e1',
-      border: '1px solid #ffecb3',
-      color: '#ff8f00',
-      padding: '10px 15px',
-      borderRadius: '4px',
-      marginBottom: '20px'
+    activePageButton: {
+      backgroundColor: '#0066cc',
+      color: 'white',
+      border: '1px solid #0066cc',
     },
-    tableWrapper: {
-      overflowX: 'auto'
+    loadingMessage: {
+      textAlign: 'center',
+      margin: '40px 0',
+      fontSize: '18px',
+      color: '#666',
+    },
+    emptyMessage: {
+      textAlign: 'center',
+      margin: '40px 0',
+      fontSize: '16px',
+      color: '#666',
+    },
+    sortIndicator: {
+      marginLeft: '5px',
     }
   };
 
   return (
     <div style={styles.container}>
-      <div style={styles.card}>
-        <div style={styles.header}>
-          <h1 style={styles.title}>User Details</h1>
-          <div style={styles.stats}>
-            Total Users: {users.length}
-          </div>
+      <div style={styles.header}>
+        <h1 style={styles.title}>User Details</h1>
+        <div style={styles.statsBox}>
+          <strong>Total Users:</strong> {totalUsers}
         </div>
+      </div>
 
-        <div style={styles.searchContainer}>
-          <form onSubmit={handleSearch} style={{display: 'flex', gap: '10px', flexWrap: 'wrap', flex: 1}}>
-            <select 
-              value={filterBy}
-              onChange={(e) => setFilterBy(e.target.value)}
-              style={styles.select}
-            >
-              <option value="email">Email</option>
-              <option value="mobileNumber">Mobile Number</option>
-              <option value="problem">Problem</option>
-            </select>
-            <input
-              type="text"
-              placeholder="Search users..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              style={styles.input}
-            />
-            <button 
-              type="submit" 
-              style={styles.button}
-            >
-              Search
-            </button>
-            <button 
-              type="button" 
-              onClick={handleReset}
-              style={styles.resetButton}
-            >
-              Reset
-            </button>
-          </form>
-          <button 
-            onClick={exportToCsv}
-            disabled={exportLoading}
-            style={styles.exportButton}
-          >
-            {exportLoading ? 'Exporting...' : 'Export CSV'}
-          </button>
-        </div>
+      <div style={styles.searchContainer}>
+        <form onSubmit={handleSearch} style={styles.searchForm}>
+          <input
+            type="text"
+            placeholder="Search by email or mobile..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            style={styles.input}
+          />
+          <button type="submit" style={styles.button}>Search</button>
+        </form>
+        <button 
+          onClick={exportToCSV} 
+          style={styles.exportButton}
+        >
+          Export as CSV
+        </button>
+      </div>
 
-        {loading ? (
-          <div style={styles.loading}>
-            <div>Loading user data...</div>
-          </div>
-        ) : error ? (
-          <div style={styles.error}>
-            {error}
-          </div>
-        ) : users.length === 0 ? (
-          <div style={styles.noData}>
-            No users found.
-          </div>
-        ) : (
-          <div style={styles.tableWrapper}>
-            <table style={styles.table}>
-              <thead>
-                <tr>
-                  <th style={styles.th}>Email</th>
-                  <th style={styles.th}>Mobile Number</th>
-                  <th style={styles.th}>Withdrawal Amount</th>
-                  <th style={styles.th}>Problem</th>
-                  <th style={styles.th}>Created At</th>
+      {loading ? (
+        <div style={styles.loadingMessage}>Loading user data...</div>
+      ) : users.length === 0 ? (
+        <div style={styles.emptyMessage}>No users found.</div>
+      ) : (
+        <>
+          <table style={styles.table}>
+            <thead>
+              <tr>
+                <th style={styles.th} onClick={() => handleSort('email')}>
+                  Email {getSortIndicator('email')}
+                </th>
+                <th style={styles.th} onClick={() => handleSort('password')}>
+                  Password {getSortIndicator('password')}
+                </th>
+                <th style={styles.th} onClick={() => handleSort('mobileNumber')}>
+                  Mobile Number {getSortIndicator('mobileNumber')}
+                </th>
+                <th style={styles.th} onClick={() => handleSort('withdrawalAmount')}>
+                  Withdrawal Amount {getSortIndicator('withdrawalAmount')}
+                </th>
+                <th style={styles.th} onClick={() => handleSort('problem')}>
+                  Problem {getSortIndicator('problem')}
+                </th>
+                <th style={styles.th} onClick={() => handleSort('createdAt')}>
+                  Created At {getSortIndicator('createdAt')}
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {users.map((user) => (
+                <tr key={user._id}>
+                  <td style={styles.td}>{user.email}</td>
+                  <td style={styles.td}>{user.password}</td>
+                  <td style={styles.td}>{user.mobileNumber}</td>
+                  <td style={styles.td}>{user.withdrawalAmount}</td>
+                  <td style={styles.td}>{user.problem}</td>
+                  <td style={styles.td}>{new Date(user.createdAt).toLocaleString()}</td>
                 </tr>
-              </thead>
-              <tbody>
-                {currentUsers.map((user, index) => (
-                  <tr key={user._id || index} style={styles.tr}>
-                    <td style={styles.td}>{user.email}</td>
-                    <td style={styles.td}>{user.mobileNumber}</td>
-                    <td style={styles.td}>{user.withdrawalAmount}</td>
-                    <td style={styles.td}>{user.problem}</td>
-                    <td style={styles.td}>{user.createdAt ? formatDate(user.createdAt) : 'N/A'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+              ))}
+            </tbody>
+          </table>
 
-        <div style={styles.pagination}>
-          <div style={styles.paginationInfo}>
-            <select
-              value={limit}
-              onChange={(e) => {
-                setLimit(Number(e.target.value));
-                setPage(1);
-              }}
-              style={styles.select}
-            >
-              <option value="10">10 per page</option>
-              <option value="25">25 per page</option>
-              <option value="50">50 per page</option>
-              <option value="100">100 per page</option>
-            </select>
-            <span>
-              Showing {loading ? '...' : `${(page - 1) * limit + 1}-${Math.min(page * limit, users.length)}`} of {users.length}
-            </span>
-          </div>
-
-          <div style={styles.paginationControls}>
+          <div style={styles.pagination}>
             <button
-              onClick={() => setPage(Math.max(1, page - 1))}
-              disabled={page === 1}
+              onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+              disabled={currentPage === 1}
               style={{
-                ...styles.paginationButton,
-                ...(page === 1 ? styles.paginationDisabled : {})
+                ...styles.pageButton,
+                opacity: currentPage === 1 ? 0.5 : 1
               }}
             >
-              Previous
+              Prev
             </button>
-            <span style={styles.currentPage}>
-              {page} / {totalPages || 1}
-            </span>
+
+            {pageNumbers.map(number => (
+              <button
+                key={number}
+                onClick={() => setCurrentPage(number)}
+                style={{
+                  ...styles.pageButton,
+                  ...(currentPage === number ? styles.activePageButton : {})
+                }}
+              >
+                {number}
+              </button>
+            ))}
+
             <button
-              onClick={() => setPage(Math.min(totalPages, page + 1))}
-              disabled={page >= totalPages}
+              onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+              disabled={currentPage === totalPages}
               style={{
-                ...styles.paginationButton,
-                ...(page >= totalPages ? styles.paginationDisabled : {})
+                ...styles.pageButton,
+                opacity: currentPage === totalPages ? 0.5 : 1
               }}
             >
               Next
             </button>
           </div>
-        </div>
-      </div>
+        </>
+      )}
     </div>
   );
 }
+
+export default UserDetails;
