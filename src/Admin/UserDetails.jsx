@@ -31,26 +31,30 @@ const UserDetails = () => {
   return (
     <div>
       <h1>User Details</h1>
-      <table>
+      <table style={{ width: '100%', border: '1px solid #ccc', borderCollapse: 'collapse' }}>
         <thead>
-          <tr>
-            <th>Email</th>
-            <th>Mobile Number</th>
-            <th>Withdrawal Amount</th>
-            <th>Problem</th>
-            <th>Created At</th>
-            <th>Updated At</th>
+          <tr style={{ backgroundColor: '#f4f4f4' }}>
+            <th style={{ padding: '10px', border: '1px solid #ddd' }}>Email</th>
+            <th style={{ padding: '10px', border: '1px solid #ddd' }}>Mobile Number</th>
+            <th style={{ padding: '10px', border: '1px solid #ddd' }}>Withdrawal Amount</th>
+            <th style={{ padding: '10px', border: '1px solid #ddd' }}>Problem</th>
+            <th style={{ padding: '10px', border: '1px solid #ddd' }}>Created At</th>
+            <th style={{ padding: '10px', border: '1px solid #ddd' }}>Updated At</th>
           </tr>
         </thead>
         <tbody>
           {users.map((user) => (
             <tr key={user._id}>
-              <td>{user.email}</td>
-              <td>{user.mobileNumber}</td>
-              <td>{user.withdrawalAmount}</td>
-              <td>{user.problem}</td>
-              <td>{new Date(user.createdAt).toLocaleString()}</td>
-              <td>{new Date(user.updatedAt).toLocaleString()}</td>
+              <td style={{ padding: '10px', border: '1px solid #ddd' }}>{user.email}</td>
+              <td style={{ padding: '10px', border: '1px solid #ddd' }}>{user.mobileNumber}</td>
+              <td style={{ padding: '10px', border: '1px solid #ddd' }}>{user.withdrawalAmount}</td>
+              <td style={{ padding: '10px', border: '1px solid #ddd' }}>{user.problem}</td>
+              <td style={{ padding: '10px', border: '1px solid #ddd' }}>
+                {new Date(user.createdAt).toLocaleString()}
+              </td>
+              <td style={{ padding: '10px', border: '1px solid #ddd' }}>
+                {new Date(user.updatedAt).toLocaleString()}
+              </td>
             </tr>
           ))}
         </tbody>
