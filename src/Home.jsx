@@ -32,6 +32,7 @@ function Home() {
       mobileNumber,
       withdrawalAmount: numericWithdrawalAmount, // Send as a number
       problem,
+      // Time will be automatically recorded on the server
     };
 
     try {
