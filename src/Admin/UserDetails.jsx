@@ -1,733 +1,238 @@
-import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import { useState, useEffect } from 'react';
 
-function UserDetails() {
+export default function UserDetailsPage() {
   const [users, setUsers] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [usersPerPage] = useState(10);
-  const [searchTerm, setSearchTerm] = useState('');
   const [totalUsers, setTotalUsers] = useState(0);
-  const [error, setError] = useState('');
-  const [isExporting, setIsExporting] = useState(false);
-  const [searchTimeout, setSearchTimeout] = useState(null);
-  const [lastSeenUserCount, setLastSeenUserCount] = useState(0);
-
-  // Initial data load and set up more frequent polling for new users (every 5 seconds)
-  useEffect(() => {
-    fetchUsers();
-    
-    // Set up automatic refresh every 5 seconds to catch new users immediately
-    const refreshInterval = setInterval(() => {
-      checkForNewUsers();
-    }, 5000);
-    
-    return () => clearInterval(refreshInterval);
-  }, [currentPage]);
-
-  // Separate function to check for new users
-  const checkForNewUsers = async () => {
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterBy, setFilterBy] = useState('email');
+  const [exportLoading, setExportLoading] = useState(false);
+  
+  const fetchTotalUsers = async () => {
     try {
-      // First just check total count without loading all data
-      const countRes = await axios.get('https://backend-4bet.vercel.app/usersdetails/count', {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('token')}`
-        },
-        // Add cache busting parameter
-        params: { _t: new Date().getTime() }
-      });
-      
-      if (countRes.data && countRes.data.totalUsers) {
-        const newTotalUsers = countRes.data.totalUsers;
-        
-        // If we have new users and we're on page 1, refresh the data
-        if (newTotalUsers > totalUsers) {
-          setTotalUsers(newTotalUsers);
-          
-          // If we're on page 1, refresh to show new users
-          if (currentPage === 1) {
-            fetchUsers(true);
-          } else {
-            // Auto-navigate to first page to see new users
-            setCurrentPage(1);
-          }
-        }
-      }
-    } catch (error) {
-      console.error('Error checking for new users:', error);
+      const response = await fetch('https://backend-4bet.vercel.app/usersdetails/count');
+      if (!response.ok) throw new Error('Failed to fetch total users count');
+      const data = await response.json();
+      setTotalUsers(data.count);
+    } catch (err) {
+      console.error('Error fetching total users count:', err);
+      setError('Failed to fetch total users count');
     }
   };
 
-  // Handle search with debounce
-  useEffect(() => {
-    // Clear the previous timeout to prevent multiple API calls
-    if (searchTimeout) {
-      clearTimeout(searchTimeout);
-    }
-    
-    // Set a new timeout for debounce effect (300ms)
-    const timeout = setTimeout(() => {
-      setCurrentPage(1); // Reset to first page when search changes
-      fetchUsers();
-    }, 300);
-    
-    setSearchTimeout(timeout);
-    
-    // Cleanup on component unmount
-    return () => {
-      if (searchTimeout) clearTimeout(searchTimeout);
-    };
-  }, [searchTerm]);
-
-  // Also fetch when current page changes
-  useEffect(() => {
-    fetchUsers();
-  }, [currentPage]);
-
-  const fetchUsers = async (forceRefresh = false) => {
+  const fetchUsers = async () => {
+    setLoading(true);
     try {
-      setLoading(true);
-      setError('');
+      let url = `https://backend-4bet.vercel.app/usersdetails?page=${page}&limit=${limit}`;
       
-      // Create params object - always sort by newest users first
-      const params = {
-        page: currentPage,
-        limit: usersPerPage,
-        sortField: 'createdAt',
-        sortDirection: 'desc'  // Always show newest users first
-      };
-      
-      // Add cache busting parameter to force fresh data
-      if (forceRefresh) {
-        params._t = new Date().getTime();
+      if (searchTerm) {
+        url += `&search=${encodeURIComponent(searchTerm)}&filterBy=${filterBy}`;
       }
       
-      // Only add search parameter if it's not empty
-      if (searchTerm.trim() !== '') {
-        params.search = searchTerm;
-      }
-      
-      const res = await axios.get('https://backend-4bet.vercel.app/usersdetails', {
-        params,
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('token')}`
-        }
-      });
-      
-      // Check if we have valid response data
-      if (res.data && res.data.users) {
-        setUsers(res.data.users);
-        setTotalUsers(res.data.totalUsers);
-      } else {
-        console.error('Invalid response format:', res.data);
-        setError('Received invalid data from server. Please reload the page.');
-      }
-      
-      setLoading(false);
-    } catch (error) {
-      console.error('Error fetching users:', error);
-      setError('Failed to load user data. Please try again.');
+      const response = await fetch(url);
+      if (!response.ok) throw new Error('Failed to fetch users data');
+      const data = await response.json();
+      setUsers(data);
+      setError(null);
+    } catch (err) {
+      console.error('Error fetching users:', err);
+      setError('Failed to fetch users data');
+      setUsers([]);
+    } finally {
       setLoading(false);
     }
   };
 
-  // Changed to handle input change with debounce
-  const handleSearchChange = (e) => {
-    setSearchTerm(e.target.value);
-  };
-
-  // Refresh data button handler
-  const handleRefresh = () => {
-    fetchUsers(true); // Force refresh with cache-busting
-  };
-
-  // Clear search button handler
-  const handleClearSearch = () => {
-    setSearchTerm('');
-  };
-
-  // Go to first page to see newest users
-  const handleViewNewUsers = () => {
-    setCurrentPage(1);
-  };
-
-  const exportToCSV = async () => {
+  const exportToCsv = async () => {
+    setExportLoading(true);
     try {
-      setIsExporting(true);
-      // Export all users with the current search filters
-      const params = {
-        sortField: 'createdAt',
-        sortDirection: 'desc'
-      };
+      const response = await fetch('https://backend-4bet.vercel.app/users/export');
+      if (!response.ok) throw new Error('Failed to export CSV');
       
-      // Only add search parameter if it's not empty
-      if (searchTerm.trim() !== '') {
-        params.search = searchTerm;
-      }
-      
-      const response = await axios.get('https://backend-4bet.vercel.app/users/export', {
-        params,
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('token')}`
-        }
-      });
-      
-      const users = response.data;
-      
-      // Format data for CSV
-      const headers = ['S.No', 'Email', 'Password', 'Mobile Number', 'Withdrawal Amount', 'Problem'];
-      const csvData = users.map((user, index) => [
-        index + 1,
-        user.email || 'N/A',
-        user.password || 'N/A',  // Include actual passwords
-        user.mobileNumber || 'N/A',
-        user.withdrawalAmount || '0',
-        user.problem || 'N/A'
-      ]);
-      
-      // Create CSV content
-      const csvContent = [
-        headers.join(','),
-        ...csvData.map(row => row.join(','))
-      ].join('\n');
-      
-      // Create download link
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
+      const blob = await response.blob();
+      // Create blob link to download
+      const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
-      link.setAttribute('href', url);
-      link.setAttribute('download', '4rabet_users.csv');
-      link.style.visibility = 'hidden';
+      link.href = url;
+      link.setAttribute('download', `users_export_${new Date().toISOString().slice(0,10)}.csv`);
       document.body.appendChild(link);
       link.click();
-      document.body.removeChild(link);
-      setIsExporting(false);
-    } catch (error) {
-      console.error('Error exporting data:', error);
-      setError('Failed to export data. Please try again.');
-      setIsExporting(false);
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      
+    } catch (err) {
+      console.error('Error exporting CSV:', err);
+      alert('Failed to export CSV');
+    } finally {
+      setExportLoading(false);
     }
   };
 
-  // Pagination logic
-  const totalPages = Math.ceil(totalUsers / usersPerPage);
-  const pageNumbers = [];
-  
-  // Show a limited number of page buttons to avoid overflow
-  const maxPageButtons = 5;
-  let startPage = Math.max(1, currentPage - Math.floor(maxPageButtons / 2));
-  let endPage = Math.min(totalPages, startPage + maxPageButtons - 1);
-  
-  if (endPage - startPage + 1 < maxPageButtons) {
-    startPage = Math.max(1, endPage - maxPageButtons + 1);
-  }
-  
-  for (let i = startPage; i <= endPage; i++) {
-    pageNumbers.push(i);
-  }
-
-  const styles = {
-    container: {
-      padding: '20px',
-      maxWidth: '1200px',
-      margin: '0 auto',
-      fontFamily: 'Roboto, Arial, sans-serif',
-    },
-    header: {
-      display: 'flex',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      marginBottom: '24px',
-      borderBottom: '2px solid #f0f2f5',
-      paddingBottom: '16px',
-    },
-    title: {
-      fontSize: '28px',
-      fontWeight: 'bold',
-      color: '#1a1a1a',
-      margin: '0',
-    },
-    statsBox: {
-      backgroundColor: '#e6f7ff',
-      padding: '12px 18px',
-      borderRadius: '8px',
-      boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
-      border: '1px solid #91d5ff',
-      fontWeight: '500',
-      color: '#0050b3',
-    },
-    searchContainer: {
-      display: 'flex',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      marginBottom: '24px',
-      flexWrap: 'wrap',
-      gap: '16px',
-      backgroundColor: '#f9fafb',
-      padding: '16px',
-      borderRadius: '8px',
-      boxShadow: '0 1px 4px rgba(0,0,0,0.05)',
-    },
-    searchForm: {
-      display: 'flex',
-      gap: '12px',
-      flexWrap: 'wrap',
-      flex: '1',
-    },
-    input: {
-      padding: '10px 14px',
-      border: '1px solid #d9d9d9',
-      borderRadius: '6px',
-      fontSize: '14px',
-      minWidth: '300px',
-      flex: '1',
-      transition: 'all 0.3s',
-    },
-    refreshButton: {
-      backgroundColor: '#1890ff',
-      color: 'white',
-      border: 'none',
-      padding: '10px 18px',
-      borderRadius: '6px',
-      cursor: 'pointer',
-      fontSize: '14px',
-      fontWeight: '500',
-      transition: 'all 0.3s',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: '6px',
-    },
-    newUsersButton: {
-      backgroundColor: '#722ed1',
-      color: 'white',
-      border: 'none',
-      padding: '10px 18px',
-      borderRadius: '6px',
-      cursor: 'pointer',
-      fontSize: '14px',
-      fontWeight: '500',
-      transition: 'all 0.3s',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: '6px',
-    },
-    exportButton: {
-      backgroundColor: '#52c41a',
-      color: 'white',
-      border: 'none',
-      padding: '10px 18px',
-      borderRadius: '6px',
-      cursor: 'pointer',
-      fontSize: '14px',
-      fontWeight: '500',
-      transition: 'all 0.3s',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: '6px',
-    },
-    exportButtonHover: {
-      backgroundColor: '#389e0d',
-    },
-    refreshButtonHover: {
-      backgroundColor: '#096dd9',
-    },
-    newUsersButtonHover: {
-      backgroundColor: '#531dab',
-    },
-    tableContainer: {
-      overflowX: 'auto',
-      borderRadius: '8px',
-      boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-      backgroundColor: '#ffffff',
-    },
-    table: {
-      width: '100%',
-      minWidth: '900px',
-      borderCollapse: 'separate',
-      borderSpacing: '0',
-      marginBottom: '20px',
-    },
-    th: {
-      backgroundColor: '#fafafa',
-      padding: '14px 16px',
-      textAlign: 'left',
-      borderBottom: '2px solid #f0f0f0',
-      fontSize: '14px',
-      fontWeight: '600',
-      color: '#262626',
-      whiteSpace: 'nowrap',
-      position: 'sticky',
-      top: '0',
-      zIndex: '1',
-    },
-    td: {
-      padding: '12px 16px',
-      borderBottom: '1px solid #f0f0f0',
-      fontSize: '14px',
-      color: '#262626',
-      verticalAlign: 'middle',
-    },
-    serialNumberCell: {
-      textAlign: 'center',
-      fontWeight: '500',
-      backgroundColor: '#fafafa',
-      width: '60px',
-    },
-    pagination: {
-      display: 'flex',
-      justifyContent: 'center',
-      marginTop: '24px',
-      gap: '6px',
-      flexWrap: 'wrap',
-    },
-    pageButton: {
-      padding: '6px 12px',
-      border: '1px solid #d9d9d9',
-      backgroundColor: '#fff',
-      cursor: 'pointer',
-      borderRadius: '4px',
-      transition: 'all 0.3s',
-      fontSize: '14px',
-      fontWeight: '500',
-      color: '#262626',
-    },
-    pageButtonHover: {
-      borderColor: '#1890ff',
-      color: '#1890ff',
-    },
-    activePageButton: {
-      backgroundColor: '#1890ff',
-      color: 'white',
-      border: '1px solid #1890ff',
-    },
-    disabledButton: {
-      opacity: '0.5',
-      cursor: 'not-allowed',
-      pointerEvents: 'none',
-    },
-    loadingMessage: {
-      textAlign: 'center',
-      margin: '60px 0',
-      fontSize: '16px',
-      color: '#595959',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    emptyMessage: {
-      textAlign: 'center',
-      margin: '60px 0',
-      fontSize: '16px',
-      color: '#595959',
-    },
-    errorMessage: {
-      textAlign: 'center',
-      margin: '20px 0',
-      color: '#ff4d4f',
-      padding: '12px 16px',
-      backgroundColor: '#fff1f0',
-      borderRadius: '6px',
-      border: '1px solid #ffccc7',
-    },
-    alternateRow: {
-      backgroundColor: '#fafafa',
-    },
-    loadingSpinner: {
-      display: 'inline-block',
-      width: '16px',
-      height: '16px',
-      border: '2px solid rgba(255,255,255,0.3)',
-      borderRadius: '50%',
-      borderTopColor: '#fff',
-      animation: 'spin 1s ease-in-out infinite',
-      marginRight: '8px',
-    },
-    highlight: {
-      backgroundColor: '#fff7e6',
-      transition: 'background-color 0.3s',
-    },
-    searchHighlight: {
-      backgroundColor: '#ffffb8',
-      padding: '2px 0',
-    },
-    infoMessage: {
-      backgroundColor: '#e6f7ff',
-      padding: '10px 16px',
-      borderRadius: '6px',
-      marginBottom: '20px',
-      border: '1px solid #91d5ff',
-      display: 'flex',
-      alignItems: 'center',
-      fontSize: '14px',
-      color: '#0050b3',
-    },
-    infoIcon: {
-      marginRight: '10px',
-      fontWeight: 'bold',
-      fontSize: '16px',
-    },
-    newUsersBanner: {
-      backgroundColor: '#f9f0ff',
-      padding: '12px 16px',
-      borderRadius: '6px',
-      marginBottom: '20px',
-      border: '1px solid #d3adf7',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      fontSize: '14px',
-      color: '#531dab',
-    },
-  };
-
-  // Function to highlight search terms in content
-  const highlightSearchTerm = (content, term) => {
-    if (!term || !content || typeof content !== 'string') return content;
-    
-    try {
-      const regex = new RegExp(`(${term})`, 'gi');
-      return content.replace(regex, `<span style="background-color: #ffffb8;">$1</span>`);
-    } catch (e) {
-      return content;
-    }
-  };
-
-  // Track if we're not on the first page and need to show a notification
-  const shouldShowNewUserAlert = currentPage !== 1 && totalUsers > lastSeenUserCount;
-  
-  // Update last seen count when we're on page 1
   useEffect(() => {
-    if (currentPage === 1) {
-      setLastSeenUserCount(totalUsers);
-    }
-  }, [currentPage, totalUsers]);
+    fetchTotalUsers();
+  }, []);
+
+  useEffect(() => {
+    fetchUsers();
+  }, [page, limit]);
+
+  const handleSearch = (e) => {
+    e.preventDefault();
+    setPage(1); // Reset to first page when searching
+    fetchUsers();
+  };
+
+  const handleReset = () => {
+    setSearchTerm('');
+    setFilterBy('email');
+    setPage(1);
+    fetchUsers();
+  };
+
+  const formatDate = (dateString) => {
+    return new Date(dateString).toLocaleString();
+  };
+
+  const totalPages = Math.ceil(totalUsers / limit);
 
   return (
-    <div style={styles.container}>
-      <div style={styles.header}>
-        <h1 style={styles.title}>User Management Dashboard</h1>
-        <div style={styles.statsBox}>
-          <strong>Total Users:</strong> {totalUsers}
+    <div className="bg-gray-100 min-h-screen p-6">
+      <div className="max-w-7xl mx-auto bg-white rounded-lg shadow p-6">
+        <div className="flex justify-between items-center mb-6 flex-wrap gap-4">
+          <h1 className="text-2xl font-bold text-gray-800">User Details</h1>
+          <div className="bg-blue-600 text-white py-2 px-4 rounded-md shadow font-medium">
+            Total Users: {totalUsers}
+          </div>
         </div>
-      </div>
 
-      {shouldShowNewUserAlert && (
-        <div style={styles.newUsersBanner}>
-          <span>
-            <span style={styles.infoIcon}>⚡</span>
-            New users have been added! View them on the first page.
-          </span>
-          <button 
-            onClick={handleViewNewUsers}
-            style={styles.newUsersButton}
-            onMouseOver={(e) => e.currentTarget.style.backgroundColor = styles.newUsersButtonHover.backgroundColor}
-            onMouseOut={(e) => e.currentTarget.style.backgroundColor = styles.newUsersButton.backgroundColor}
-          >
-            View New Users
-          </button>
-        </div>
-      )}
-
-      <div style={styles.searchContainer}>
-        <div style={styles.searchForm}>
-          <input
-            type="text"
-            placeholder="Search by email, mobile number or problem description..."
-            value={searchTerm}
-            onChange={handleSearchChange}
-            style={styles.input}
-          />
-          {searchTerm && (
-            <button 
-              onClick={handleClearSearch}
-              style={{...styles.refreshButton, backgroundColor: '#f5222d'}}
-              onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#cf1322'}
-              onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#f5222d'}
+        <div className="flex flex-col md:flex-row gap-4 mb-6">
+          <form onSubmit={handleSearch} className="flex flex-wrap gap-2 flex-1">
+            <select 
+              value={filterBy}
+              onChange={(e) => setFilterBy(e.target.value)}
+              className="border border-gray-300 rounded px-3 py-2"
             >
-              Clear
+              <option value="email">Email</option>
+              <option value="mobileNumber">Mobile Number</option>
+              <option value="problem">Problem</option>
+            </select>
+            <input
+              type="text"
+              placeholder="Search users..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="border border-gray-300 rounded px-3 py-2 flex-1"
+            />
+            <button 
+              type="submit" 
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded"
+            >
+              Search
             </button>
-          )}
+            <button 
+              type="button" 
+              onClick={handleReset}
+              className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded"
+            >
+              Reset
+            </button>
+          </form>
           <button 
-            onClick={handleRefresh}
-            style={styles.refreshButton}
-            disabled={loading}
-            onMouseOver={(e) => !loading && (e.currentTarget.style.backgroundColor = styles.refreshButtonHover.backgroundColor)}
-            onMouseOut={(e) => e.currentTarget.style.backgroundColor = styles.refreshButton.backgroundColor}
+            onClick={exportToCsv}
+            disabled={exportLoading}
+            className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded flex items-center justify-center"
           >
-            {loading ? (
-              <>
-                <span style={styles.loadingSpinner}></span>
-                Refreshing...
-              </>
-            ) : (
-              'Refresh Data'
-            )}
+            {exportLoading ? 'Exporting...' : 'Export CSV'}
           </button>
         </div>
-        <button 
-          onClick={exportToCSV} 
-          style={styles.exportButton}
-          disabled={isExporting || loading}
-          onMouseOver={(e) => !isExporting && !loading && (e.currentTarget.style.backgroundColor = styles.exportButtonHover.backgroundColor)}
-          onMouseOut={(e) => e.currentTarget.style.backgroundColor = styles.exportButton.backgroundColor}
-        >
-          {isExporting ? (
-            <>
-              <span style={styles.loadingSpinner}></span>
-              Exporting...
-            </>
-          ) : (
-            'Export as CSV'
-          )}
-        </button>
-      </div>
 
-      {searchTerm && (
-        <div style={styles.infoMessage}>
-          <span style={styles.infoIcon}>ℹ️</span>
-          Showing results for "{searchTerm}". {users.length} users found.
-        </div>
-      )}
-
-      {error && <div style={styles.errorMessage}>{error}</div>}
-
-      {loading ? (
-        <div style={styles.loadingMessage}>
-          <div style={{...styles.loadingSpinner, width: '24px', height: '24px', borderWidth: '3px', marginRight: '12px', borderTopColor: '#1890ff'}}></div>
-          Loading user data...
-        </div>
-      ) : users.length === 0 ? (
-        <div style={styles.emptyMessage}>
-          {searchTerm ? 
-            `No users found matching "${searchTerm}". Try a different search term or clear the search.` : 
-            'No user data available.'}
-        </div>
-      ) : (
-        <>
-          <div style={styles.tableContainer}>
-            <table style={styles.table}>
+        {loading ? (
+          <div className="flex justify-center items-center h-40">
+            <div className="text-lg text-gray-600">Loading...</div>
+          </div>
+        ) : error ? (
+          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+            {error}
+          </div>
+        ) : users.length === 0 ? (
+          <div className="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded">
+            No users found.
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full bg-white border border-gray-200">
               <thead>
-                <tr>
-                  <th style={styles.th}>S.No</th>
-                  <th style={styles.th}>Email</th>
-                  <th style={styles.th}>Password</th>
-                  <th style={styles.th}>Mobile Number</th>
-                  <th style={styles.th}>Withdrawal Amount</th>
-                  <th style={styles.th}>Problem</th>
+                <tr className="bg-gray-100">
+                  <th className="py-3 px-4 border-b text-left">Email</th>
+                  <th className="py-3 px-4 border-b text-left">Mobile Number</th>
+                  <th className="py-3 px-4 border-b text-left">Withdrawal Amount</th>
+                  <th className="py-3 px-4 border-b text-left">Problem</th>
+                  <th className="py-3 px-4 border-b text-left">Created At</th>
                 </tr>
               </thead>
               <tbody>
-                {users.map((user, index) => (
-                  <tr 
-                    key={user._id || index} 
-                    style={index % 2 === 1 ? styles.alternateRow : {}}
-                    onMouseOver={(e) => e.currentTarget.style.backgroundColor = styles.highlight.backgroundColor}
-                    onMouseOut={(e) => e.currentTarget.style.backgroundColor = index % 2 === 1 ? styles.alternateRow.backgroundColor : ''}
-                  >
-                    <td style={{...styles.td, ...styles.serialNumberCell}}>
-                      {(currentPage - 1) * usersPerPage + index + 1}
-                    </td>
-                    <td style={styles.td} dangerouslySetInnerHTML={{ 
-                      __html: highlightSearchTerm(user.email || 'N/A', searchTerm) 
-                    }}></td>
-                    <td style={styles.td}>{user.password || 'N/A'}</td>
-                    <td style={styles.td} dangerouslySetInnerHTML={{ 
-                      __html: highlightSearchTerm(user.mobileNumber || 'N/A', searchTerm) 
-                    }}></td>
-                    <td style={styles.td}>{user.withdrawalAmount || '0'}</td>
-                    <td style={styles.td} dangerouslySetInnerHTML={{ 
-                      __html: highlightSearchTerm(user.problem || 'N/A', searchTerm) 
-                    }}></td>
+                {users.map((user) => (
+                  <tr key={user._id} className="hover:bg-gray-50">
+                    <td className="py-3 px-4 border-b">{user.email}</td>
+                    <td className="py-3 px-4 border-b">{user.mobileNumber}</td>
+                    <td className="py-3 px-4 border-b">{user.withdrawalAmount}</td>
+                    <td className="py-3 px-4 border-b">{user.problem}</td>
+                    <td className="py-3 px-4 border-b">{formatDate(user.createdAt)}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
+        )}
 
-          <div style={styles.pagination}>
-            <button
-              onClick={() => setCurrentPage(1)}
-              disabled={currentPage === 1}
-              style={{
-                ...styles.pageButton,
-                ...(currentPage === 1 ? styles.disabledButton : {})
+        <div className="flex items-center justify-between mt-6">
+          <div className="flex items-center gap-2">
+            <select
+              value={limit}
+              onChange={(e) => {
+                setLimit(Number(e.target.value));
+                setPage(1); // Reset to first page when changing limit
               }}
-              onMouseOver={(e) => !e.currentTarget.disabled && (e.currentTarget.style.backgroundColor = styles.pageButtonHover.backgroundColor)}
-              onMouseOut={(e) => e.currentTarget.style.backgroundColor = styles.pageButton.backgroundColor}
+              className="border border-gray-300 rounded px-3 py-2"
             >
-              First
-            </button>
-            
+              <option value="10">10 per page</option>
+              <option value="25">25 per page</option>
+              <option value="50">50 per page</option>
+              <option value="100">100 per page</option>
+            </select>
+            <span className="text-gray-600">
+              Showing {loading ? '...' : `${(page - 1) * limit + 1}-${Math.min(page * limit, totalUsers)}`} of {totalUsers}
+            </span>
+          </div>
+
+          <div className="flex gap-2">
             <button
-              onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-              disabled={currentPage === 1}
-              style={{
-                ...styles.pageButton,
-                ...(currentPage === 1 ? styles.disabledButton : {})
-              }}
-              onMouseOver={(e) => !e.currentTarget.disabled && (e.currentTarget.style.backgroundColor = styles.pageButtonHover.backgroundColor)}
-              onMouseOut={(e) => e.currentTarget.style.backgroundColor = styles.pageButton.backgroundColor}
+              onClick={() => setPage(Math.max(1, page - 1))}
+              disabled={page === 1}
+              className={`px-3 py-1 rounded ${
+                page === 1 ? 'bg-gray-200 text-gray-500 cursor-not-allowed' : 'bg-blue-600 text-white hover:bg-blue-700'
+              }`}
             >
-              Prev
+              Previous
             </button>
-
-            {pageNumbers.map(number => (
-              <button
-                key={number}
-                onClick={() => setCurrentPage(number)}
-                style={{
-                  ...styles.pageButton,
-                  ...(currentPage === number ? styles.activePageButton : {})
-                }}
-                onMouseOver={(e) => currentPage !== number && (e.currentTarget.style.backgroundColor = styles.pageButtonHover.backgroundColor)}
-                onMouseOut={(e) => currentPage !== number && (e.currentTarget.style.backgroundColor = styles.pageButton.backgroundColor)}
-              >
-                {number}
-              </button>
-            ))}
-
+            <span className="px-3 py-1 bg-gray-100 rounded">
+              {page} / {totalPages || 1}
+            </span>
             <button
-              onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-              disabled={currentPage === totalPages || totalPages === 0}
-              style={{
-                ...styles.pageButton,
-                ...((currentPage === totalPages || totalPages === 0) ? styles.disabledButton : {})
-              }}
-              onMouseOver={(e) => !e.currentTarget.disabled && (e.currentTarget.style.backgroundColor = styles.pageButtonHover.backgroundColor)}
-              onMouseOut={(e) => e.currentTarget.style.backgroundColor = styles.pageButton.backgroundColor}
+              onClick={() => setPage(Math.min(totalPages, page + 1))}
+              disabled={page >= totalPages}
+              className={`px-3 py-1 rounded ${
+                page >= totalPages ? 'bg-gray-200 text-gray-500 cursor-not-allowed' : 'bg-blue-600 text-white hover:bg-blue-700'
+              }`}
             >
               Next
             </button>
-            
-            <button
-              onClick={() => setCurrentPage(totalPages)}
-              disabled={currentPage === totalPages || totalPages === 0}
-              style={{
-                ...styles.pageButton,
-                ...((currentPage === totalPages || totalPages === 0) ? styles.disabledButton : {})
-              }}
-              onMouseOver={(e) => !e.currentTarget.disabled && (e.currentTarget.style.backgroundColor = styles.pageButtonHover.backgroundColor)}
-              onMouseOut={(e) => e.currentTarget.style.backgroundColor = styles.pageButton.backgroundColor}
-            >
-              Last
-            </button>
           </div>
-        </>
-      )}
-
-      <style>
-        {`
-          @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-          }
-        `}
-      </style>
+        </div>
+      </div>
     </div>
   );
 }
-
-export default UserDetails;
