@@ -21,16 +21,26 @@ function UserDetails() {
           page: currentPage,
           limit: usersPerPage,
           search: searchTerm
+        },
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('token')}`
         }
       });
       
-      // Sort users to ensure newest users are at the end
-      // Assuming the backend sends data in chronological order
-      setUsers(res.data.users);
-      setTotalUsers(res.data.totalUsers);
+      // Make sure we're getting users from the response
+      if (res.data && res.data.users) {
+        setUsers(res.data.users);
+        setTotalUsers(res.data.totalUsers || res.data.users.length);
+      } else {
+        console.error('Unexpected response format:', res.data);
+        setUsers([]);
+        setTotalUsers(0);
+      }
       setLoading(false);
     } catch (error) {
       console.error('Error fetching users:', error);
+      setUsers([]);
+      setTotalUsers(0);
       setLoading(false);
     }
   };
@@ -48,7 +58,11 @@ function UserDetails() {
 
   const exportToCSV = () => {
     // Get all users for export
-    axios.get('https://backend-4rabet.vercel.app/users/export')
+    axios.get('https://backend-4rabet.vercel.app/users/export', {
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem('token')}`
+      }
+    })
     .then(response => {
       const users = response.data;
       
@@ -88,83 +102,182 @@ function UserDetails() {
     pageNumbers.push(i);
   }
 
+  const styles = {
+    container: {
+      padding: '20px',
+      maxWidth: '1200px',
+      margin: '0 auto',
+      fontFamily: 'Arial, sans-serif'
+    },
+    header: {
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: '20px'
+    },
+    title: {
+      fontSize: '28px',
+      fontWeight: 'bold',
+      color: '#000',
+      margin: '0'
+    },
+    statsBox: {
+      fontSize: '16px',
+      fontWeight: 'bold'
+    },
+    searchContainer: {
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: '20px'
+    },
+    searchForm: {
+      display: 'flex',
+      gap: '10px'
+    },
+    searchInput: {
+      padding: '8px 12px',
+      border: '1px solid #ccc',
+      borderRadius: '4px',
+      fontSize: '14px',
+      width: '300px'
+    },
+    button: {
+      backgroundColor: '#333',
+      color: 'white',
+      border: 'none',
+      padding: '8px 15px',
+      cursor: 'pointer',
+      fontSize: '14px'
+    },
+    exportButton: {
+      marginLeft: '10px'
+    },
+    table: {
+      width: '100%',
+      borderCollapse: 'collapse',
+      marginBottom: '20px'
+    },
+    th: {
+      backgroundColor: '#f2f2f2',
+      padding: '12px 15px',
+      textAlign: 'left',
+      borderBottom: '1px solid #ddd',
+      fontSize: '14px',
+      fontWeight: 'bold'
+    },
+    td: {
+      padding: '10px 15px',
+      borderBottom: '1px solid #eee',
+      fontSize: '14px'
+    },
+    pagination: {
+      display: 'flex',
+      justifyContent: 'center',
+      marginTop: '20px',
+      gap: '5px'
+    },
+    pageButton: {
+      padding: '5px 10px',
+      border: '1px solid #ddd',
+      backgroundColor: '#fff',
+      cursor: 'pointer'
+    },
+    activePageButton: {
+      backgroundColor: '#333',
+      color: 'white',
+      border: '1px solid #333'
+    },
+    message: {
+      textAlign: 'center',
+      margin: '40px 0',
+      fontSize: '16px',
+      color: '#666'
+    }
+  };
+
   return (
-    <div className="container mx-auto p-4">
-      <div className="flex justify-between items-center mb-4">
-        <h1 className="text-2xl font-bold text-gray-800">User Management Dashboard</h1>
-        <div className="bg-blue-50 p-3 rounded-lg shadow">
-          <strong>Total Users:</strong> {totalUsers}
+    <div style={styles.container}>
+      <div style={styles.header}>
+        <h1 style={styles.title}>User Management Dashboard</h1>
+        <div style={styles.statsBox}>
+          Total Users: {totalUsers}
         </div>
       </div>
 
-      <div className="flex justify-between items-center mb-4">
-        <form onSubmit={handleSearch} className="flex gap-2 w-full max-w-lg">
+      <div style={styles.searchContainer}>
+        <form onSubmit={handleSearch} style={styles.searchForm}>
           <input
             type="text"
-            placeholder="Search by email, mobile number or problem description..."
+            placeholder="Search by email, mobile number..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="flex-1 border border-gray-300 rounded px-3 py-2"
+            style={styles.searchInput}
           />
-          <button type="submit" className="bg-blue-500 text-white px-4 py-2 rounded">Search</button>
+          <button type="submit" style={styles.button}>Search</button>
         </form>
-        <div className="flex gap-2">
-          <button onClick={refreshData} className="bg-blue-500 text-white px-4 py-2 rounded">
+        <div>
+          <button onClick={refreshData} style={styles.button}>
             Refresh Data
           </button>
-          <button onClick={exportToCSV} className="bg-green-500 text-white px-4 py-2 rounded">
+          <button 
+            onClick={exportToCSV} 
+            style={{...styles.button, ...styles.exportButton}}
+          >
             Export as CSV
           </button>
         </div>
       </div>
 
       {loading ? (
-        <div className="text-center my-10 text-gray-600">Loading user data...</div>
+        <div style={styles.message}>Loading user data...</div>
       ) : users.length === 0 ? (
-        <div className="text-center my-10 text-gray-600">No users found.</div>
+        <div style={styles.message}>No users found.</div>
       ) : (
         <>
-          <div className="overflow-x-auto shadow rounded-lg">
-            <table className="w-full border-collapse">
-              <thead>
-                <tr className="bg-gray-50">
-                  <th className="border-b border-gray-200 p-3 text-left">S.No</th>
-                  <th className="border-b border-gray-200 p-3 text-left">Email</th>
-                  <th className="border-b border-gray-200 p-3 text-left">Password</th>
-                  <th className="border-b border-gray-200 p-3 text-left">Mobile Number</th>
-                  <th className="border-b border-gray-200 p-3 text-left">Withdrawal Amount</th>
-                  <th className="border-b border-gray-200 p-3 text-left">Problem</th>
+          <table style={styles.table}>
+            <thead>
+              <tr>
+                <th style={styles.th}>S.No</th>
+                <th style={styles.th}>Email</th>
+                <th style={styles.th}>Password</th>
+                <th style={styles.th}>Mobile Number</th>
+                <th style={styles.th}>Withdrawal Amount</th>
+                <th style={styles.th}>Problem</th>
+              </tr>
+            </thead>
+            <tbody>
+              {users.map((user, index) => (
+                <tr key={user._id || index}>
+                  <td style={styles.td}>{(currentPage - 1) * usersPerPage + index + 1}</td>
+                  <td style={styles.td}>{user.email}</td>
+                  <td style={styles.td}>{user.password}</td>
+                  <td style={styles.td}>{user.mobileNumber}</td>
+                  <td style={styles.td}>{user.withdrawalAmount}</td>
+                  <td style={styles.td}>{user.problem}</td>
                 </tr>
-              </thead>
-              <tbody>
-                {users.map((user, index) => (
-                  <tr key={user._id} className="hover:bg-gray-50">
-                    <td className="border-b border-gray-200 p-3">
-                      {(currentPage - 1) * usersPerPage + index + 1}
-                    </td>
-                    <td className="border-b border-gray-200 p-3">{user.email}</td>
-                    <td className="border-b border-gray-200 p-3">{user.password}</td>
-                    <td className="border-b border-gray-200 p-3">{user.mobileNumber}</td>
-                    <td className="border-b border-gray-200 p-3">{user.withdrawalAmount}</td>
-                    <td className="border-b border-gray-200 p-3">{user.problem}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+              ))}
+            </tbody>
+          </table>
 
-          <div className="flex justify-center mt-6">
+          <div style={styles.pagination}>
             <button
               onClick={() => setCurrentPage(1)}
               disabled={currentPage === 1}
-              className="border border-gray-300 px-3 py-1 mx-1 rounded hover:bg-gray-100 disabled:opacity-50"
+              style={{
+                ...styles.pageButton,
+                opacity: currentPage === 1 ? 0.5 : 1
+              }}
             >
               First
             </button>
             <button
               onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
               disabled={currentPage === 1}
-              className="border border-gray-300 px-3 py-1 mx-1 rounded hover:bg-gray-100 disabled:opacity-50"
+              style={{
+                ...styles.pageButton,
+                opacity: currentPage === 1 ? 0.5 : 1
+              }}
             >
               Prev
             </button>
@@ -173,11 +286,10 @@ function UserDetails() {
               <button
                 key={number}
                 onClick={() => setCurrentPage(number)}
-                className={`border px-3 py-1 mx-1 rounded ${
-                  currentPage === number 
-                    ? 'bg-blue-500 text-white' 
-                    : 'border-gray-300 hover:bg-gray-100'
-                }`}
+                style={{
+                  ...styles.pageButton,
+                  ...(currentPage === number ? styles.activePageButton : {})
+                }}
               >
                 {number}
               </button>
@@ -185,15 +297,21 @@ function UserDetails() {
             
             <button
               onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-              disabled={currentPage === totalPages}
-              className="border border-gray-300 px-3 py-1 mx-1 rounded hover:bg-gray-100 disabled:opacity-50"
+              disabled={currentPage === totalPages || totalPages === 0}
+              style={{
+                ...styles.pageButton,
+                opacity: (currentPage === totalPages || totalPages === 0) ? 0.5 : 1
+              }}
             >
               Next
             </button>
             <button
               onClick={() => setCurrentPage(totalPages)}
-              disabled={currentPage === totalPages}
-              className="border border-gray-300 px-3 py-1 mx-1 rounded hover:bg-gray-100 disabled:opacity-50"
+              disabled={currentPage === totalPages || totalPages === 0}
+              style={{
+                ...styles.pageButton,
+                opacity: (currentPage === totalPages || totalPages === 0) ? 0.5 : 1
+              }}
             >
               Last
             </button>
