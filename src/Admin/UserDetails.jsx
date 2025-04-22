@@ -27,7 +27,6 @@ function UserDetails() {
         }
       });
       
-      // Make sure we're getting users from the response
       if (res.data && res.data.users) {
         setUsers(res.data.users);
         setTotalUsers(res.data.totalUsers || res.data.users.length);
@@ -57,7 +56,6 @@ function UserDetails() {
   };
 
   const exportToCSV = () => {
-    // Get all users for export
     axios.get('https://backend-4rabet.vercel.app/users/export', {
       headers: {
         Authorization: `Bearer ${localStorage.getItem('token')}`
@@ -66,7 +64,6 @@ function UserDetails() {
     .then(response => {
       const users = response.data;
       
-      // Format data for CSV
       const headers = ['Email', 'Mobile Number', 'Withdrawal Amount', 'Problem'];
       const csvData = users.map(user => [
         user.email,
@@ -75,13 +72,11 @@ function UserDetails() {
         user.problem
       ]);
       
-      // Create CSV content
       const csvContent = [
         headers.join(','),
         ...csvData.map(row => row.join(','))
       ].join('\n');
       
-      // Create download link
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
