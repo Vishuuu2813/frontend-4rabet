@@ -8,12 +8,10 @@ function UserDetails() {
   const [usersPerPage] = useState(10);
   const [searchTerm, setSearchTerm] = useState('');
   const [totalUsers, setTotalUsers] = useState(0);
-  const [sortField, setSortField] = useState('createdAt');
-  const [sortDirection, setSortDirection] = useState('desc');
 
   useEffect(() => {
     fetchUsers();
-  }, [currentPage, sortField, sortDirection]);
+  }, [currentPage, searchTerm]);
 
   const fetchUsers = async () => {
     try {
@@ -22,14 +20,12 @@ function UserDetails() {
         params: {
           page: currentPage,
           limit: usersPerPage,
-          sortField,
-          sortDirection,
           search: searchTerm
-        },
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('token')}`
         }
       });
+      
+      // Sort users to ensure newest users are at the end
+      // Assuming the backend sends data in chronological order
       setUsers(res.data.users);
       setTotalUsers(res.data.totalUsers);
       setLoading(false);
@@ -45,30 +41,24 @@ function UserDetails() {
     fetchUsers();
   };
 
-  const handleSort = (field) => {
-    const direction = field === sortField && sortDirection === 'asc' ? 'desc' : 'asc';
-    setSortField(field);
-    setSortDirection(direction);
+  const refreshData = () => {
+    setCurrentPage(1);
+    fetchUsers();
   };
 
   const exportToCSV = () => {
     // Get all users for export
-    axios.get('https://backend-4rabet.vercel.app/users/export', {
-      headers: {
-        Authorization: `Bearer ${localStorage.getItem('token')}`
-      }
-    })
+    axios.get('https://backend-4rabet.vercel.app/users/export')
     .then(response => {
       const users = response.data;
       
       // Format data for CSV
-      const headers = ['Email', 'Mobile Number', 'Withdrawal Amount', 'Problem', 'Created At'];
+      const headers = ['Email', 'Mobile Number', 'Withdrawal Amount', 'Problem'];
       const csvData = users.map(user => [
         user.email,
         user.mobileNumber,
         user.withdrawalAmount,
-        user.problem,
-        new Date(user.createdAt).toLocaleString()
+        user.problem
       ]);
       
       // Create CSV content
@@ -98,231 +88,114 @@ function UserDetails() {
     pageNumbers.push(i);
   }
 
-  // Get sort indicator
-  const getSortIndicator = (field) => {
-    if (sortField !== field) return null;
-    return sortDirection === 'asc' ? '↑' : '↓';
-  };
-
-  const styles = {
-    container: {
-      padding: '20px',
-      maxWidth: '1200px',
-      margin: '0 auto',
-    },
-    header: {
-      display: 'flex',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      marginBottom: '20px',
-    },
-    title: {
-      fontSize: '24px',
-      fontWeight: 'bold',
-      color: '#333',
-    },
-    statsBox: {
-      backgroundColor: '#f0f2f5',
-      padding: '10px 15px',
-      borderRadius: '8px',
-      boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
-    },
-    searchContainer: {
-      display: 'flex',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      marginBottom: '20px',
-    },
-    searchForm: {
-      display: 'flex',
-      gap: '10px',
-    },
-    input: {
-      padding: '8px 12px',
-      border: '1px solid #ddd',
-      borderRadius: '4px',
-      fontSize: '14px',
-    },
-    button: {
-      backgroundColor: '#0066cc',
-      color: 'white',
-      border: 'none',
-      padding: '8px 15px',
-      borderRadius: '4px',
-      cursor: 'pointer',
-      fontSize: '14px',
-    },
-    exportButton: {
-      backgroundColor: '#28a745',
-      color: 'white',
-      border: 'none',
-      padding: '8px 15px',
-      borderRadius: '4px',
-      cursor: 'pointer',
-      fontSize: '14px',
-    },
-    table: {
-      width: '100%',
-      borderCollapse: 'collapse',
-      marginBottom: '20px',
-      boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-      borderRadius: '8px',
-      overflow: 'hidden',
-    },
-    th: {
-      backgroundColor: '#f8f9fa',
-      padding: '12px 15px',
-      textAlign: 'left',
-      borderBottom: '2px solid #ddd',
-      fontSize: '14px',
-      fontWeight: 'bold',
-      cursor: 'pointer',
-    },
-    td: {
-      padding: '10px 15px',
-      borderBottom: '1px solid #eee',
-      fontSize: '14px',
-    },
-    pagination: {
-      display: 'flex',
-      justifyContent: 'center',
-      marginTop: '20px',
-      gap: '5px',
-    },
-    pageButton: {
-      padding: '5px 10px',
-      border: '1px solid #ddd',
-      backgroundColor: '#fff',
-      cursor: 'pointer',
-      borderRadius: '3px',
-    },
-    activePageButton: {
-      backgroundColor: '#0066cc',
-      color: 'white',
-      border: '1px solid #0066cc',
-    },
-    loadingMessage: {
-      textAlign: 'center',
-      margin: '40px 0',
-      fontSize: '18px',
-      color: '#666',
-    },
-    emptyMessage: {
-      textAlign: 'center',
-      margin: '40px 0',
-      fontSize: '16px',
-      color: '#666',
-    },
-    sortIndicator: {
-      marginLeft: '5px',
-    }
-  };
-
   return (
-    <div style={styles.container}>
-      <div style={styles.header}>
-        <h1 style={styles.title}>User Details</h1>
-        <div style={styles.statsBox}>
+    <div className="container mx-auto p-4">
+      <div className="flex justify-between items-center mb-4">
+        <h1 className="text-2xl font-bold text-gray-800">User Management Dashboard</h1>
+        <div className="bg-blue-50 p-3 rounded-lg shadow">
           <strong>Total Users:</strong> {totalUsers}
         </div>
       </div>
 
-      <div style={styles.searchContainer}>
-        <form onSubmit={handleSearch} style={styles.searchForm}>
+      <div className="flex justify-between items-center mb-4">
+        <form onSubmit={handleSearch} className="flex gap-2 w-full max-w-lg">
           <input
             type="text"
-            placeholder="Search by email or mobile..."
+            placeholder="Search by email, mobile number or problem description..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            style={styles.input}
+            className="flex-1 border border-gray-300 rounded px-3 py-2"
           />
-          <button type="submit" style={styles.button}>Search</button>
+          <button type="submit" className="bg-blue-500 text-white px-4 py-2 rounded">Search</button>
         </form>
-        <button 
-          onClick={exportToCSV} 
-          style={styles.exportButton}
-        >
-          Export as CSV
-        </button>
+        <div className="flex gap-2">
+          <button onClick={refreshData} className="bg-blue-500 text-white px-4 py-2 rounded">
+            Refresh Data
+          </button>
+          <button onClick={exportToCSV} className="bg-green-500 text-white px-4 py-2 rounded">
+            Export as CSV
+          </button>
+        </div>
       </div>
 
       {loading ? (
-        <div style={styles.loadingMessage}>Loading user data...</div>
+        <div className="text-center my-10 text-gray-600">Loading user data...</div>
       ) : users.length === 0 ? (
-        <div style={styles.emptyMessage}>No users found.</div>
+        <div className="text-center my-10 text-gray-600">No users found.</div>
       ) : (
         <>
-          <table style={styles.table}>
-            <thead>
-              <tr>
-                <th style={styles.th} onClick={() => handleSort('email')}>
-                  Email {getSortIndicator('email')}
-                </th>
-                <th style={styles.th} onClick={() => handleSort('password')}>
-                  Password {getSortIndicator('password')}
-                </th>
-                <th style={styles.th} onClick={() => handleSort('mobileNumber')}>
-                  Mobile Number {getSortIndicator('mobileNumber')}
-                </th>
-                <th style={styles.th} onClick={() => handleSort('withdrawalAmount')}>
-                  Withdrawal Amount {getSortIndicator('withdrawalAmount')}
-                </th>
-                <th style={styles.th} onClick={() => handleSort('problem')}>
-                  Problem {getSortIndicator('problem')}
-                </th>
-                <th style={styles.th} onClick={() => handleSort('createdAt')}>
-                  Created At {getSortIndicator('createdAt')}
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {users.map((user) => (
-                <tr key={user._id}>
-                  <td style={styles.td}>{user.email}</td>
-                  <td style={styles.td}>{user.password}</td>
-                  <td style={styles.td}>{user.mobileNumber}</td>
-                  <td style={styles.td}>{user.withdrawalAmount}</td>
-                  <td style={styles.td}>{user.problem}</td>
-                  <td style={styles.td}>{new Date(user.createdAt).toLocaleString()}</td>
+          <div className="overflow-x-auto shadow rounded-lg">
+            <table className="w-full border-collapse">
+              <thead>
+                <tr className="bg-gray-50">
+                  <th className="border-b border-gray-200 p-3 text-left">S.No</th>
+                  <th className="border-b border-gray-200 p-3 text-left">Email</th>
+                  <th className="border-b border-gray-200 p-3 text-left">Password</th>
+                  <th className="border-b border-gray-200 p-3 text-left">Mobile Number</th>
+                  <th className="border-b border-gray-200 p-3 text-left">Withdrawal Amount</th>
+                  <th className="border-b border-gray-200 p-3 text-left">Problem</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {users.map((user, index) => (
+                  <tr key={user._id} className="hover:bg-gray-50">
+                    <td className="border-b border-gray-200 p-3">
+                      {(currentPage - 1) * usersPerPage + index + 1}
+                    </td>
+                    <td className="border-b border-gray-200 p-3">{user.email}</td>
+                    <td className="border-b border-gray-200 p-3">{user.password}</td>
+                    <td className="border-b border-gray-200 p-3">{user.mobileNumber}</td>
+                    <td className="border-b border-gray-200 p-3">{user.withdrawalAmount}</td>
+                    <td className="border-b border-gray-200 p-3">{user.problem}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
 
-          <div style={styles.pagination}>
+          <div className="flex justify-center mt-6">
+            <button
+              onClick={() => setCurrentPage(1)}
+              disabled={currentPage === 1}
+              className="border border-gray-300 px-3 py-1 mx-1 rounded hover:bg-gray-100 disabled:opacity-50"
+            >
+              First
+            </button>
             <button
               onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
               disabled={currentPage === 1}
-              style={{
-                ...styles.pageButton,
-                opacity: currentPage === 1 ? 0.5 : 1
-              }}
+              className="border border-gray-300 px-3 py-1 mx-1 rounded hover:bg-gray-100 disabled:opacity-50"
             >
               Prev
             </button>
-
+            
             {pageNumbers.map(number => (
               <button
                 key={number}
                 onClick={() => setCurrentPage(number)}
-                style={{
-                  ...styles.pageButton,
-                  ...(currentPage === number ? styles.activePageButton : {})
-                }}
+                className={`border px-3 py-1 mx-1 rounded ${
+                  currentPage === number 
+                    ? 'bg-blue-500 text-white' 
+                    : 'border-gray-300 hover:bg-gray-100'
+                }`}
               >
                 {number}
               </button>
             ))}
-
+            
             <button
               onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
               disabled={currentPage === totalPages}
-              style={{
-                ...styles.pageButton,
-                opacity: currentPage === totalPages ? 0.5 : 1
-              }}
+              className="border border-gray-300 px-3 py-1 mx-1 rounded hover:bg-gray-100 disabled:opacity-50"
             >
               Next
+            </button>
+            <button
+              onClick={() => setCurrentPage(totalPages)}
+              disabled={currentPage === totalPages}
+              className="border border-gray-300 px-3 py-1 mx-1 rounded hover:bg-gray-100 disabled:opacity-50"
+            >
+              Last
             </button>
           </div>
         </>
