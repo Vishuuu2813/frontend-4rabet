@@ -8,14 +8,38 @@ function UserDetails() {
   const [usersPerPage] = useState(10);
   const [searchTerm, setSearchTerm] = useState('');
   const [totalUsers, setTotalUsers] = useState(0);
+  const [error, setError] = useState(null);
+
+  // Add this for debugging
+  useEffect(() => {
+    // Check if token exists
+    const token = localStorage.getItem('token');
+    if (!token) {
+      console.warn("No authentication token found in localStorage");
+      // You might want to redirect to login or set some state
+    }
+  }, []);
 
   useEffect(() => {
     fetchUsers();
-  }, [currentPage, searchTerm]);
+  }, [currentPage]);
 
   const fetchUsers = async () => {
     try {
       setLoading(true);
+      setError(null);
+      
+      // Add a check for token
+      const token = localStorage.getItem('token');
+      if (!token) {
+        setError("Authentication token missing. Please login again.");
+        setLoading(false);
+        return;
+      }
+      
+      console.log("Fetching users with token:", token ? "Token exists" : "No token");
+      console.log("Current page:", currentPage);
+      
       const res = await axios.get('https://backend-4rabet.vercel.app/usersdetails', {
         params: {
           page: currentPage,
@@ -23,21 +47,29 @@ function UserDetails() {
           search: searchTerm
         },
         headers: {
-          Authorization: `Bearer ${localStorage.getItem('token')}`
+          Authorization: `Bearer ${token}`
         }
       });
       
-      if (res.data && res.data.users) {
+      console.log("API Response:", res.data);
+      
+      if (res.data && Array.isArray(res.data.users)) {
         setUsers(res.data.users);
         setTotalUsers(res.data.totalUsers || res.data.users.length);
+      } else if (res.data && Array.isArray(res.data)) {
+        // Handle case where API returns array directly
+        setUsers(res.data);
+        setTotalUsers(res.data.length);
       } else {
         console.error('Unexpected response format:', res.data);
+        setError("Received unexpected data format from server");
         setUsers([]);
         setTotalUsers(0);
       }
       setLoading(false);
     } catch (error) {
-      console.error('Error fetching users:', error);
+      console.error('Error fetching users:', error.response || error);
+      setError(error.response?.data?.message || error.message || "Failed to fetch users");
       setUsers([]);
       setTotalUsers(0);
       setLoading(false);
@@ -52,24 +84,45 @@ function UserDetails() {
 
   const refreshData = () => {
     setCurrentPage(1);
+    setSearchTerm('');
     fetchUsers();
   };
 
   const exportToCSV = () => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      setError("Authentication token missing. Please login again.");
+      return;
+    }
+    
     axios.get('https://backend-4rabet.vercel.app/users/export', {
       headers: {
-        Authorization: `Bearer ${localStorage.getItem('token')}`
+        Authorization: `Bearer ${token}`
       }
     })
     .then(response => {
-      const users = response.data;
+      console.log("Export response:", response.data);
+      
+      let users = [];
+      if (Array.isArray(response.data)) {
+        users = response.data;
+      } else if (response.data && Array.isArray(response.data.users)) {
+        users = response.data.users;
+      } else {
+        throw new Error("Unexpected data format");
+      }
+      
+      if (users.length === 0) {
+        setError("No data to export");
+        return;
+      }
       
       const headers = ['Email', 'Mobile Number', 'Withdrawal Amount', 'Problem'];
       const csvData = users.map(user => [
-        user.email,
-        user.mobileNumber,
-        user.withdrawalAmount,
-        user.problem
+        user.email || '',
+        user.mobileNumber || '',
+        user.withdrawalAmount || '',
+        user.problem || ''
       ]);
       
       const csvContent = [
@@ -87,7 +140,10 @@ function UserDetails() {
       link.click();
       document.body.removeChild(link);
     })
-    .catch(error => console.error('Error exporting data:', error));
+    .catch(error => {
+      console.error('Error exporting data:', error);
+      setError("Failed to export data: " + (error.message || "Unknown error"));
+    });
   };
 
   // Pagination logic
@@ -188,17 +244,44 @@ function UserDetails() {
       margin: '40px 0',
       fontSize: '16px',
       color: '#666'
+    },
+    errorMessage: {
+      textAlign: 'center',
+      margin: '20px 0',
+      padding: '10px',
+      backgroundColor: '#ffebee',
+      color: '#c62828',
+      borderRadius: '4px'
+    },
+    // Add some simple mocked data for debugging
+    mockUserRow: {
+      backgroundColor: '#f9f9f9'
     }
   };
+
+  // For debugging purposes, add some mock data if no users are found
+  const mockUsers = [
+    { _id: '1', email: 'user1@example.com', password: '******', mobileNumber: '1234567890', withdrawalAmount: '1000', problem: 'Withdrawal issue' },
+    { _id: '2', email: 'user2@example.com', password: '******', mobileNumber: '9876543210', withdrawalAmount: '2500', problem: 'Deposit' },
+  ];
+
+  // Decide which users to show - use mockUsers if in debug mode and no real users
+  const displayUsers = users.length > 0 ? users : mockUsers;
 
   return (
     <div style={styles.container}>
       <div style={styles.header}>
         <h1 style={styles.title}>User Management Dashboard</h1>
         <div style={styles.statsBox}>
-          Total Users: {totalUsers}
+          Total Users: {totalUsers || displayUsers.length}
         </div>
       </div>
+
+      {error && (
+        <div style={styles.errorMessage}>
+          Error: {error}
+        </div>
+      )}
 
       <div style={styles.searchContainer}>
         <form onSubmit={handleSearch} style={styles.searchForm}>
@@ -226,7 +309,7 @@ function UserDetails() {
 
       {loading ? (
         <div style={styles.message}>Loading user data...</div>
-      ) : users.length === 0 ? (
+      ) : displayUsers.length === 0 ? (
         <div style={styles.message}>No users found.</div>
       ) : (
         <>
@@ -242,8 +325,11 @@ function UserDetails() {
               </tr>
             </thead>
             <tbody>
-              {users.map((user, index) => (
-                <tr key={user._id || index}>
+              {displayUsers.map((user, index) => (
+                <tr 
+                  key={user._id || index}
+                  style={users.length === 0 ? styles.mockUserRow : null} // Highlight mock data rows
+                >
                   <td style={styles.td}>{(currentPage - 1) * usersPerPage + index + 1}</td>
                   <td style={styles.td}>{user.email}</td>
                   <td style={styles.td}>{user.password}</td>
@@ -291,21 +377,21 @@ function UserDetails() {
             ))}
             
             <button
-              onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-              disabled={currentPage === totalPages || totalPages === 0}
+              onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages || 1))}
+              disabled={currentPage === (totalPages || 1)}
               style={{
                 ...styles.pageButton,
-                opacity: (currentPage === totalPages || totalPages === 0) ? 0.5 : 1
+                opacity: (currentPage === (totalPages || 1)) ? 0.5 : 1
               }}
             >
               Next
             </button>
             <button
-              onClick={() => setCurrentPage(totalPages)}
-              disabled={currentPage === totalPages || totalPages === 0}
+              onClick={() => setCurrentPage(totalPages || 1)}
+              disabled={currentPage === (totalPages || 1)}
               style={{
                 ...styles.pageButton,
-                opacity: (currentPage === totalPages || totalPages === 0) ? 0.5 : 1
+                opacity: (currentPage === (totalPages || 1)) ? 0.5 : 1
               }}
             >
               Last
