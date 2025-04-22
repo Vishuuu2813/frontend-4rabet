@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import axios from 'axios';
 
 export default function UserDetailsPage() {
   const [users, setUsers] = useState([]);
@@ -13,10 +14,8 @@ export default function UserDetailsPage() {
   
   const fetchTotalUsers = async () => {
     try {
-      const response = await fetch('https://backend-4bet.vercel.app/usersdetails/count');
-      if (!response.ok) throw new Error('Failed to fetch total users count');
-      const data = await response.json();
-      setTotalUsers(data.count || 0);
+      const response = await axios.get('https://backend-4bet.vercel.app/usersdetails/count');
+      setTotalUsers(response.data.count || 0);
     } catch (err) {
       console.error('Error fetching total users count:', err);
       setError('Failed to fetch total users count');
@@ -26,17 +25,11 @@ export default function UserDetailsPage() {
   const fetchUsers = async () => {
     setLoading(true);
     try {
-      let url = `https://backend-4bet.vercel.app/usersdetails?page=${page}&limit=${limit}`;
-      
-      if (searchTerm) {
-        url += `&search=${encodeURIComponent(searchTerm)}&filterBy=${filterBy}`;
-      }
-      
-      const response = await fetch(url);
-      if (!response.ok) throw new Error('Failed to fetch users data');
-      const data = await response.json();
+      // Using only the base URL without any parameters
+      const response = await axios.get('https://backend-4bet.vercel.app/usersdetails');
       
       // Check if data is an array or has a specific property containing the array
+      const data = response.data;
       const userArray = Array.isArray(data) ? data : 
                         (data.users ? data.users : 
                         (data.data ? data.data : []));
@@ -55,11 +48,12 @@ export default function UserDetailsPage() {
   const exportToCsv = async () => {
     setExportLoading(true);
     try {
-      const response = await fetch('https://backend-4bet.vercel.app/users/export');
-      if (!response.ok) throw new Error('Failed to export CSV');
+      const response = await axios.get('https://backend-4bet.vercel.app/users/export', {
+        responseType: 'blob'
+      });
       
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
+      // Create blob link to download
+      const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = url;
       link.setAttribute('download', `users_export_${new Date().toISOString().slice(0,10)}.csv`);
@@ -82,7 +76,7 @@ export default function UserDetailsPage() {
 
   useEffect(() => {
     fetchUsers();
-  }, [page, limit]);
+  }, []);
 
   const handleSearch = (e) => {
     e.preventDefault();
@@ -101,7 +95,11 @@ export default function UserDetailsPage() {
     return new Date(dateString).toLocaleString();
   };
 
-  const totalPages = Math.ceil(totalUsers / limit);
+  // Client-side pagination logic
+  const indexOfLastUser = page * limit;
+  const indexOfFirstUser = indexOfLastUser - limit;
+  const currentUsers = users.slice(indexOfFirstUser, indexOfLastUser);
+  const totalPages = Math.ceil(users.length / limit);
 
   const styles = {
     container: {
@@ -278,7 +276,7 @@ export default function UserDetailsPage() {
         <div style={styles.header}>
           <h1 style={styles.title}>User Details</h1>
           <div style={styles.stats}>
-            Total Users: {totalUsers}
+            Total Users: {users.length}
           </div>
         </div>
 
@@ -348,7 +346,7 @@ export default function UserDetailsPage() {
                 </tr>
               </thead>
               <tbody>
-                {users.map((user, index) => (
+                {currentUsers.map((user, index) => (
                   <tr key={user._id || index} style={styles.tr}>
                     <td style={styles.td}>{user.email}</td>
                     <td style={styles.td}>{user.mobileNumber}</td>
@@ -378,7 +376,7 @@ export default function UserDetailsPage() {
               <option value="100">100 per page</option>
             </select>
             <span>
-              Showing {loading ? '...' : `${(page - 1) * limit + 1}-${Math.min(page * limit, totalUsers)}`} of {totalUsers}
+              Showing {loading ? '...' : `${(page - 1) * limit + 1}-${Math.min(page * limit, users.length)}`} of {users.length}
             </span>
           </div>
 
