@@ -62,6 +62,13 @@ function UserDetails() {
     fetchUsers();
   };
 
+  // Format date in a readable format
+  const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
+    const date = new Date(dateString);
+    return date.toLocaleString();
+  };
+
   const exportToCSV = () => {
     const token = localStorage.getItem('token');
     if (!token) {
@@ -89,12 +96,13 @@ function UserDetails() {
         return;
       }
       
-      const headers = ['Email', 'Mobile Number', 'Withdrawal Amount', 'Problem'];
+      const headers = ['Email', 'Mobile Number', 'Withdrawal Amount', 'Problem', 'Created At'];
       const csvData = users.map(user => [
         user.email || '',
         user.mobileNumber || '',
         user.withdrawalAmount || '',
-        user.problem || ''
+        user.problem || '',
+        user.createdAt ? formatDate(user.createdAt) : 'N/A'
       ]);
       
       const csvContent = [
@@ -264,6 +272,7 @@ function UserDetails() {
                 <th style={styles.th}>Mobile Number</th>
                 <th style={styles.th}>Withdrawal Amount</th>
                 <th style={styles.th}>Problem</th>
+                <th style={styles.th}>Created At</th>
               </tr>
             </thead>
             <tbody>
@@ -275,6 +284,7 @@ function UserDetails() {
                   <td style={styles.td}>{user.mobileNumber}</td>
                   <td style={styles.td}>{user.withdrawalAmount}</td>
                   <td style={styles.td}>{user.problem}</td>
+                  <td style={styles.td}>{formatDate(user.createdAt)}</td>
                 </tr>
               ))}
             </tbody>
