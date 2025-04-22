@@ -13,17 +13,23 @@ function UserDetails() {
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      const res = await axios.get('https://backend-4bet.vercel.app/usersdetails', {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('token')}`,
+      const res = await axios.get(
+        'https://backend-4bet.vercel.app/usersdetails?limit=1000',
+        {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem('token')}`,
+          }
         }
-      });
+      );
 
       console.log('API Response data:', res.data);
-      
-      let fetchedUsers = res.data.users || [];
+
+      let fetchedUsers = [];
+      if (res.data && res.data.users) {
+        fetchedUsers = res.data.users;
+      }
+
       console.log('Total users fetched:', fetchedUsers.length);
-      
       setUsers(fetchedUsers);
       setError(null);
     } catch (error) {
@@ -37,16 +43,13 @@ function UserDetails() {
   // Format date
   const formatDate = (dateString) => {
     if (!dateString) return "N/A";
-    
+
     try {
       const date = new Date(dateString);
-      
       if (isNaN(date.getTime())) {
         return "N/A";
       }
-      
-      // Format to local date and time
-      return date.toLocaleString(); // Adjust this if you want a specific format
+      return date.toLocaleString(); // Format to local date and time
     } catch (e) {
       return "N/A";
     }
@@ -63,6 +66,8 @@ function UserDetails() {
       fontWeight: 'bold',
       color: '#333',
       marginBottom: '20px',
+      display: 'flex',
+      alignItems: 'center',
     },
     tableWrapper: {
       height: '650px',
@@ -118,18 +123,43 @@ function UserDetails() {
       fontSize: '16px',
       fontWeight: 'bold',
     },
+    refreshButton: {
+      padding: '8px 16px',
+      backgroundColor: '#4CAF50',
+      color: 'white',
+      border: 'none',
+      borderRadius: '4px',
+      cursor: 'pointer',
+      marginLeft: '10px',
+      fontWeight: 'normal',
+    },
+    showAllText: {
+      fontSize: '16px',
+      marginBottom: '10px',
+      color: '#e74c3c',
+    }
   };
 
   return (
     <div style={styles.container}>
-      <h1 style={styles.title}>User Details</h1>
-      
+      <h1 style={styles.title}>
+        User Details
+        <button 
+          style={styles.refreshButton} 
+          onClick={fetchUsers}
+          disabled={loading}
+        >
+          {loading ? 'Loading...' : 'Refresh Data'}
+        </button>
+      </h1>
+      <div style={styles.showAllText}>
+        Attempting to show ALL users (no limit)
+      </div>
       {error && (
         <div style={styles.errorMessage}>
           {error}
         </div>
       )}
-      
       {loading ? (
         <div style={styles.loadingMessage}>Loading user data...</div>
       ) : users.length === 0 ? (
