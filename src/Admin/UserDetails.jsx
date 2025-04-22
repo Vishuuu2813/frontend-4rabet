@@ -1,3 +1,4 @@
+// FRONTEND SOLUTION - Complete UserDetails component
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 
@@ -12,32 +13,22 @@ const UserDetails = () => {
         const response = await axios.get('https://backend-4bet.vercel.app/usersdetails', {
           headers: {
             Authorization: `Bearer ${localStorage.getItem('token')}`
-          },
-          params: {
-            limit: 1000 // Request a high limit to get all users
           }
         });
         
-        // Sort users to ensure new entries are at the end
-        // Assuming newer entries have more recent createdAt timestamps
-        const sortedUsers = response.data.users.sort((a, b) => {
-          return new Date(a.createdAt) - new Date(b.createdAt);
-        });
+        // Sort users by _id to preserve MongoDB's insertion order
+        const sortedUsers = [...response.data.users];
         
         setUsers(sortedUsers);
         setLoading(false);
       } catch (err) {
+        console.error("Error fetching data:", err);
         setError('Error fetching user data: ' + (err.response?.data?.message || err.message));
         setLoading(false);
       }
     };
 
     fetchUserDetails();
-    
-    // Set up polling to check for new users periodically
-    const intervalId = setInterval(fetchUserDetails, 60000); // Check every minute
-    
-    return () => clearInterval(intervalId);
   }, []);
 
   if (loading) return <div>Loading...</div>;
@@ -46,6 +37,7 @@ const UserDetails = () => {
   return (
     <div>
       <h1>User Details</h1>
+      <p>Total Users: {users.length}</p>
       <table style={{ width: '100%', border: '1px solid #ccc', borderCollapse: 'collapse' }}>
         <thead>
           <tr style={{ backgroundColor: '#f4f4f4' }}>
@@ -67,10 +59,10 @@ const UserDetails = () => {
               <td style={{ padding: '10px', border: '1px solid #ddd' }}>{user.withdrawalAmount}</td>
               <td style={{ padding: '10px', border: '1px solid #ddd' }}>{user.problem}</td>
               <td style={{ padding: '10px', border: '1px solid #ddd' }}>
-                {new Date(user.createdAt).toLocaleString()}
+                {user.createdAt ? new Date(user.createdAt).toLocaleString() : 'N/A'}
               </td>
               <td style={{ padding: '10px', border: '1px solid #ddd' }}>
-                {new Date(user.updatedAt).toLocaleString()}
+                {user.updatedAt ? new Date(user.updatedAt).toLocaleString() : 'N/A'}
               </td>
             </tr>
           ))}
