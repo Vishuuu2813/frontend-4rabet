@@ -30,9 +30,6 @@ function UserDetails() {
       padding: '20px',
       maxWidth: '1200px',
       margin: '0 auto',
-      height: '100vh',
-      display: 'flex',
-      flexDirection: 'column',
     },
     title: {
       fontSize: '24px',
@@ -40,20 +37,16 @@ function UserDetails() {
       color: '#333',
       marginBottom: '20px',
     },
-    tableContainer: {
-      flex: 1,
-      overflow: 'auto',
+    tableWrapper: {
+      maxHeight: '70vh', // Set a fixed height for scrolling
+      overflowY: 'auto',  // Enable vertical scrolling
+      border: '1px solid #ddd',
       borderRadius: '8px',
       boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
     },
     table: {
       width: '100%',
       borderCollapse: 'collapse',
-    },
-    thead: {
-      position: 'sticky',
-      top: 0,
-      zIndex: 1,
     },
     th: {
       backgroundColor: '#f8f9fa',
@@ -62,6 +55,9 @@ function UserDetails() {
       borderBottom: '2px solid #ddd',
       fontSize: '14px',
       fontWeight: 'bold',
+      position: 'sticky',
+      top: 0,
+      zIndex: 10,
     },
     td: {
       padding: '10px 15px',
@@ -85,14 +81,15 @@ function UserDetails() {
   return (
     <div style={styles.container}>
       <h1 style={styles.title}>User Details</h1>
+      
       {loading ? (
         <div style={styles.loadingMessage}>Loading user data...</div>
       ) : users.length === 0 ? (
         <div style={styles.emptyMessage}>No users found.</div>
       ) : (
-        <div style={styles.tableContainer}>
+        <div style={styles.tableWrapper}>
           <table style={styles.table}>
-            <thead style={styles.thead}>
+            <thead>
               <tr>
                 <th style={styles.th}>Email</th>
                 <th style={styles.th}>Password</th>
