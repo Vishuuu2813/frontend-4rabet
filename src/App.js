@@ -7,6 +7,7 @@ import Login from "./Auth/Login";
 import Register from "./Auth/Register";
 import ProtectedRoute from "./ProtectedRoute";
 import UserDetails from "./Admin/UserDetails";
+import NewUserDetails from "./Admin/NewUserDetails";
 
 function App() {
   return (
@@ -34,6 +35,13 @@ function App() {
               <UserDetails />
             </ProtectedRoute>
           }/>
+          <Route 
+          path="/new-user-details" 
+          element={
+            <ProtectedRoute>
+              <NewUserDetails />
+            </ProtectedRoute>
+          }/>   
       </Routes>
     </Router>
   );
