@@ -26,6 +26,8 @@ function UserDetails() {
 
       let fetchedUsers = [];
       if (res.data && res.data.users) {
+        // Keep the data exactly as returned from MongoDB
+        // DO NOT modify the order
         fetchedUsers = res.data.users;
       }
 
@@ -150,7 +152,12 @@ function UserDetails() {
     serialNumber: {
       fontWeight: 'bold',
       textAlign: 'center',
-    }
+    },
+    idColumn: {
+      maxWidth: '220px',
+      overflow: 'hidden',
+      textOverflow: 'ellipsis',
+    },
   };
 
   return (
@@ -166,7 +173,7 @@ function UserDetails() {
         </button>
       </h1>
       <div style={styles.showAllText}>
-        Attempting to show ALL users (no limit)
+        Showing data exactly as stored in MongoDB
       </div>
       {error && (
         <div style={styles.errorMessage}>
@@ -186,7 +193,8 @@ function UserDetails() {
             <table style={styles.table}>
               <thead>
                 <tr>
-                  <th style={{...styles.th, width: '60px'}}>S.No</th>
+                  <th style={{...styles.th, width: '40px'}}>Idx</th>
+                  <th style={{...styles.th, width: '220px'}}>_id</th>
                   <th style={styles.th}>Email</th>
                   <th style={styles.th}>Password</th>
                   <th style={styles.th}>Mobile Number</th>
@@ -199,6 +207,7 @@ function UserDetails() {
                 {users.map((user, index) => (
                   <tr key={user._id || index}>
                     <td style={{...styles.td, ...styles.serialNumber}}>{index + 1}</td>
+                    <td style={{...styles.td, ...styles.idColumn}}>{user._id}</td>
                     <td style={styles.td}>{user.email || 'N/A'}</td>
                     <td style={styles.td}>{user.password || 'N/A'}</td>
                     <td style={styles.td}>{user.mobileNumber || 'N/A'}</td>
