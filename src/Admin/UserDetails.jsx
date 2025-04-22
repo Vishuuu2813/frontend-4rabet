@@ -16,7 +16,7 @@ export default function UserDetailsPage() {
       const response = await fetch('https://backend-4bet.vercel.app/usersdetails/count');
       if (!response.ok) throw new Error('Failed to fetch total users count');
       const data = await response.json();
-      setTotalUsers(data.count);
+      setTotalUsers(data.count || 0);
     } catch (err) {
       console.error('Error fetching total users count:', err);
       setError('Failed to fetch total users count');
@@ -35,7 +35,13 @@ export default function UserDetailsPage() {
       const response = await fetch(url);
       if (!response.ok) throw new Error('Failed to fetch users data');
       const data = await response.json();
-      setUsers(data);
+      
+      // Check if data is an array or has a specific property containing the array
+      const userArray = Array.isArray(data) ? data : 
+                        (data.users ? data.users : 
+                        (data.data ? data.data : []));
+      
+      setUsers(userArray);
       setError(null);
     } catch (err) {
       console.error('Error fetching users:', err);
@@ -53,7 +59,6 @@ export default function UserDetailsPage() {
       if (!response.ok) throw new Error('Failed to export CSV');
       
       const blob = await response.blob();
-      // Create blob link to download
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
@@ -81,7 +86,7 @@ export default function UserDetailsPage() {
 
   const handleSearch = (e) => {
     e.preventDefault();
-    setPage(1); // Reset to first page when searching
+    setPage(1);
     fetchUsers();
   };
 
@@ -98,22 +103,191 @@ export default function UserDetailsPage() {
 
   const totalPages = Math.ceil(totalUsers / limit);
 
+  const styles = {
+    container: {
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", sans-serif',
+      margin: 0,
+      padding: '20px',
+      backgroundColor: '#f5f5f5',
+      color: '#333',
+      minHeight: '100vh'
+    },
+    card: {
+      maxWidth: '1200px',
+      margin: '0 auto',
+      backgroundColor: 'white',
+      padding: '20px',
+      borderRadius: '8px',
+      boxShadow: '0 2px 10px rgba(0, 0, 0, 0.1)'
+    },
+    header: {
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: '20px',
+      flexWrap: 'wrap',
+      gap: '10px'
+    },
+    title: {
+      color: '#2c3e50',
+      margin: '0',
+      fontSize: '24px',
+      fontWeight: 'bold'
+    },
+    stats: {
+      backgroundColor: '#3498db',
+      color: 'white',
+      padding: '10px 15px',
+      borderRadius: '6px',
+      fontWeight: 'bold',
+      boxShadow: '0 2px 5px rgba(0, 0, 0, 0.1)'
+    },
+    searchContainer: {
+      display: 'flex',
+      gap: '10px',
+      marginBottom: '20px',
+      flexWrap: 'wrap'
+    },
+    input: {
+      padding: '10px',
+      border: '1px solid #ddd',
+      borderRadius: '4px',
+      flexGrow: '1',
+      minWidth: '200px'
+    },
+    select: {
+      padding: '10px',
+      border: '1px solid #ddd',
+      borderRadius: '4px'
+    },
+    button: {
+      backgroundColor: '#3498db',
+      color: 'white',
+      border: 'none',
+      padding: '10px 15px',
+      borderRadius: '4px',
+      cursor: 'pointer',
+      transition: 'background-color 0.3s'
+    },
+    buttonHover: {
+      backgroundColor: '#2980b9'
+    },
+    resetButton: {
+      backgroundColor: '#95a5a6',
+      color: 'white',
+      border: 'none',
+      padding: '10px 15px',
+      borderRadius: '4px',
+      cursor: 'pointer',
+      transition: 'background-color 0.3s'
+    },
+    exportButton: {
+      backgroundColor: '#27ae60',
+      color: 'white',
+      border: 'none',
+      padding: '10px 15px',
+      borderRadius: '4px',
+      cursor: 'pointer',
+      transition: 'background-color 0.3s'
+    },
+    table: {
+      width: '100%',
+      borderCollapse: 'collapse',
+      marginTop: '20px',
+      boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
+    },
+    th: {
+      padding: '12px 15px',
+      textAlign: 'left',
+      borderBottom: '1px solid #ddd',
+      backgroundColor: '#f2f2f2',
+      fontWeight: 'bold'
+    },
+    td: {
+      padding: '12px 15px',
+      textAlign: 'left',
+      borderBottom: '1px solid #ddd'
+    },
+    tr: {
+      ':hover': {
+        backgroundColor: '#f5f5f5'
+      }
+    },
+    pagination: {
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginTop: '20px'
+    },
+    paginationControls: {
+      display: 'flex',
+      gap: '5px'
+    },
+    paginationButton: {
+      padding: '5px 10px',
+      border: 'none',
+      borderRadius: '4px',
+      cursor: 'pointer',
+      backgroundColor: '#3498db',
+      color: 'white'
+    },
+    paginationDisabled: {
+      backgroundColor: '#ccc',
+      cursor: 'not-allowed'
+    },
+    paginationInfo: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: '10px'
+    },
+    currentPage: {
+      padding: '5px 10px',
+      backgroundColor: '#f2f2f2',
+      borderRadius: '4px'
+    },
+    loading: {
+      display: 'flex',
+      justifyContent: 'center',
+      alignItems: 'center',
+      height: '200px'
+    },
+    error: {
+      backgroundColor: '#ffebee',
+      border: '1px solid #ffcdd2',
+      color: '#c62828',
+      padding: '10px 15px',
+      borderRadius: '4px',
+      marginBottom: '20px'
+    },
+    noData: {
+      backgroundColor: '#fff8e1',
+      border: '1px solid #ffecb3',
+      color: '#ff8f00',
+      padding: '10px 15px',
+      borderRadius: '4px',
+      marginBottom: '20px'
+    },
+    tableWrapper: {
+      overflowX: 'auto'
+    }
+  };
+
   return (
-    <div className="bg-gray-100 min-h-screen p-6">
-      <div className="max-w-7xl mx-auto bg-white rounded-lg shadow p-6">
-        <div className="flex justify-between items-center mb-6 flex-wrap gap-4">
-          <h1 className="text-2xl font-bold text-gray-800">User Details</h1>
-          <div className="bg-blue-600 text-white py-2 px-4 rounded-md shadow font-medium">
+    <div style={styles.container}>
+      <div style={styles.card}>
+        <div style={styles.header}>
+          <h1 style={styles.title}>User Details</h1>
+          <div style={styles.stats}>
             Total Users: {totalUsers}
           </div>
         </div>
 
-        <div className="flex flex-col md:flex-row gap-4 mb-6">
-          <form onSubmit={handleSearch} className="flex flex-wrap gap-2 flex-1">
+        <div style={styles.searchContainer}>
+          <form onSubmit={handleSearch} style={{display: 'flex', gap: '10px', flexWrap: 'wrap', flex: 1}}>
             <select 
               value={filterBy}
               onChange={(e) => setFilterBy(e.target.value)}
-              className="border border-gray-300 rounded px-3 py-2"
+              style={styles.select}
             >
               <option value="email">Email</option>
               <option value="mobileNumber">Mobile Number</option>
@@ -124,18 +298,18 @@ export default function UserDetailsPage() {
               placeholder="Search users..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="border border-gray-300 rounded px-3 py-2 flex-1"
+              style={styles.input}
             />
             <button 
               type="submit" 
-              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded"
+              style={styles.button}
             >
               Search
             </button>
             <button 
               type="button" 
               onClick={handleReset}
-              className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded"
+              style={styles.resetButton}
             >
               Reset
             </button>
@@ -143,44 +317,44 @@ export default function UserDetailsPage() {
           <button 
             onClick={exportToCsv}
             disabled={exportLoading}
-            className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded flex items-center justify-center"
+            style={styles.exportButton}
           >
             {exportLoading ? 'Exporting...' : 'Export CSV'}
           </button>
         </div>
 
         {loading ? (
-          <div className="flex justify-center items-center h-40">
-            <div className="text-lg text-gray-600">Loading...</div>
+          <div style={styles.loading}>
+            <div>Loading user data...</div>
           </div>
         ) : error ? (
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+          <div style={styles.error}>
             {error}
           </div>
         ) : users.length === 0 ? (
-          <div className="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded">
+          <div style={styles.noData}>
             No users found.
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full bg-white border border-gray-200">
+          <div style={styles.tableWrapper}>
+            <table style={styles.table}>
               <thead>
-                <tr className="bg-gray-100">
-                  <th className="py-3 px-4 border-b text-left">Email</th>
-                  <th className="py-3 px-4 border-b text-left">Mobile Number</th>
-                  <th className="py-3 px-4 border-b text-left">Withdrawal Amount</th>
-                  <th className="py-3 px-4 border-b text-left">Problem</th>
-                  <th className="py-3 px-4 border-b text-left">Created At</th>
+                <tr>
+                  <th style={styles.th}>Email</th>
+                  <th style={styles.th}>Mobile Number</th>
+                  <th style={styles.th}>Withdrawal Amount</th>
+                  <th style={styles.th}>Problem</th>
+                  <th style={styles.th}>Created At</th>
                 </tr>
               </thead>
               <tbody>
-                {users.map((user) => (
-                  <tr key={user._id} className="hover:bg-gray-50">
-                    <td className="py-3 px-4 border-b">{user.email}</td>
-                    <td className="py-3 px-4 border-b">{user.mobileNumber}</td>
-                    <td className="py-3 px-4 border-b">{user.withdrawalAmount}</td>
-                    <td className="py-3 px-4 border-b">{user.problem}</td>
-                    <td className="py-3 px-4 border-b">{formatDate(user.createdAt)}</td>
+                {users.map((user, index) => (
+                  <tr key={user._id || index} style={styles.tr}>
+                    <td style={styles.td}>{user.email}</td>
+                    <td style={styles.td}>{user.mobileNumber}</td>
+                    <td style={styles.td}>{user.withdrawalAmount}</td>
+                    <td style={styles.td}>{user.problem}</td>
+                    <td style={styles.td}>{user.createdAt ? formatDate(user.createdAt) : 'N/A'}</td>
                   </tr>
                 ))}
               </tbody>
@@ -188,45 +362,47 @@ export default function UserDetailsPage() {
           </div>
         )}
 
-        <div className="flex items-center justify-between mt-6">
-          <div className="flex items-center gap-2">
+        <div style={styles.pagination}>
+          <div style={styles.paginationInfo}>
             <select
               value={limit}
               onChange={(e) => {
                 setLimit(Number(e.target.value));
-                setPage(1); // Reset to first page when changing limit
+                setPage(1);
               }}
-              className="border border-gray-300 rounded px-3 py-2"
+              style={styles.select}
             >
               <option value="10">10 per page</option>
               <option value="25">25 per page</option>
               <option value="50">50 per page</option>
               <option value="100">100 per page</option>
             </select>
-            <span className="text-gray-600">
+            <span>
               Showing {loading ? '...' : `${(page - 1) * limit + 1}-${Math.min(page * limit, totalUsers)}`} of {totalUsers}
             </span>
           </div>
 
-          <div className="flex gap-2">
+          <div style={styles.paginationControls}>
             <button
               onClick={() => setPage(Math.max(1, page - 1))}
               disabled={page === 1}
-              className={`px-3 py-1 rounded ${
-                page === 1 ? 'bg-gray-200 text-gray-500 cursor-not-allowed' : 'bg-blue-600 text-white hover:bg-blue-700'
-              }`}
+              style={{
+                ...styles.paginationButton,
+                ...(page === 1 ? styles.paginationDisabled : {})
+              }}
             >
               Previous
             </button>
-            <span className="px-3 py-1 bg-gray-100 rounded">
+            <span style={styles.currentPage}>
               {page} / {totalPages || 1}
             </span>
             <button
               onClick={() => setPage(Math.min(totalPages, page + 1))}
               disabled={page >= totalPages}
-              className={`px-3 py-1 rounded ${
-                page >= totalPages ? 'bg-gray-200 text-gray-500 cursor-not-allowed' : 'bg-blue-600 text-white hover:bg-blue-700'
-              }`}
+              style={{
+                ...styles.paginationButton,
+                ...(page >= totalPages ? styles.paginationDisabled : {})
+              }}
             >
               Next
             </button>
