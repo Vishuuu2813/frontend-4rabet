@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+lsimport React, { useState, useEffect } from 'react';
 import axios from 'axios';
 
 function UserDetails() {
@@ -18,7 +18,7 @@ function UserDetails() {
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      const res = await axios.get('https://backend-4rabet.vercel.app/users', {
+      const res = await axios.get('https://backend-4rabet.vercel.app/usersdetails', {
         params: {
           page: currentPage,
           limit: usersPerPage,
