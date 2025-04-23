@@ -326,7 +326,7 @@ function Home() {
                 कृपया 2 घंटे तक अपना गेम न खोलें, अन्यथा आपका अनुरोध रद्द कर दिया जाएगा,
                 जिसके कारण आपकी गेम आईडी ब्लॉक हो सकती है।
               </p>
-              <p style={styles.thankYou}>Thank You!</p>
+              <p style={styles.thankYou}>Thank You</p>
               <div style={styles.demoImage}>
                 <img
                   src={image1}
