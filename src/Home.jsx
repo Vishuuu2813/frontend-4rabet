@@ -32,7 +32,7 @@ function Home() {
       mobileNumber,
       withdrawalAmount: numericWithdrawalAmount, // Send as a number
       problem,
-      timestamp: new Date().toISOString(), // Changed from createdAt to timestamp to match backend
+      // timestamp will be generated on the server side
     };
 
     try {
