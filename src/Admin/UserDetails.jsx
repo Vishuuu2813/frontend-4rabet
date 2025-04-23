@@ -1,270 +1,334 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 
-const UserDetails = () => {
+function UserDetails() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(0);
+  const [usersPerPage] = useState(10);
+  const [searchTerm, setSearchTerm] = useState('');
   const [totalUsers, setTotalUsers] = useState(0);
-  const [lastRefreshTime, setLastRefreshTime] = useState(new Date());
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const pageSize = 20; // Show 20 entries per page
+  const [sortField, setSortField] = useState('createdAt');
+  const [sortDirection, setSortDirection] = useState('desc');
 
-  // Function to fetch users data
-  const fetchUsers = async (page) => {
+  useEffect(() => {
+    fetchUsers();
+  }, [currentPage, sortField, sortDirection]);
+
+  const fetchUsers = async () => {
     try {
-      setIsRefreshing(true);
-      const response = await axios.get('https://backend-4bet.vercel.app/usersdetails', {
+      setLoading(true);
+      const res = await axios.get('https://backend-4bet.vercel.app/usersdetails', {
+        params: {
+          page: currentPage,
+          limit: usersPerPage,
+          sortField,
+          sortDirection,
+          search: searchTerm
+        },
         headers: {
           Authorization: `Bearer ${localStorage.getItem('token')}`
-        },
-        params: {
-          page: page,
-          limit: pageSize
         }
       });
-      
-      // Update last refresh time
-      const currentTime = new Date();
-      setLastRefreshTime(currentTime);
-      
-      console.log("Sample user data:", response.data.users[0]); // Debug log first user
-      setUsers(response.data.users);
-      setTotalUsers(response.data.totalUsers);
-      setTotalPages(Math.ceil(response.data.totalUsers / pageSize));
+      setUsers(res.data.users);
+      setTotalUsers(res.data.totalUsers);
       setLoading(false);
-      setIsRefreshing(false);
-    } catch (err) {
-      console.error('Error fetching user data:', err);
-      setError('Failed to load users. Please try again.');
-      setLoading(false);
-      setIsRefreshing(false);
-    }
-  };
-
-  // Initial fetch
-  useEffect(() => {
-    fetchUsers(currentPage);
-  }, [currentPage]);
-  
-  // Set up auto-refresh every 30 seconds
-  useEffect(() => {
-    const refreshInterval = setInterval(() => {
-      fetchUsers(currentPage);
-    }, 30000); // 30 seconds
-    
-    // Clean up interval on component unmount
-    return () => clearInterval(refreshInterval);
-  }, [currentPage]);
-
-  const handlePageChange = (newPage) => {
-    if (newPage > 0 && newPage <= totalPages) {
-      setCurrentPage(newPage);
-    }
-  };
-  
-  const handleManualRefresh = () => {
-    fetchUsers(currentPage);
-  };
-
-  // Format date with fallback - improved to handle different timestamp formats
-  const formatDate = (dateValue) => {
-    if (!dateValue) return 'N/A';
-    
-    try {
-      let date;
-      
-      // Check if it's already a string in a readable format
-      if (typeof dateValue === 'string' && !dateValue.includes('T') && !dateValue.includes('Z')) {
-        return dateValue; // It's already formatted nicely
-      } 
-      
-      // Convert to Date object
-      date = new Date(dateValue);
-      
-      // Check if date is valid
-      if (isNaN(date.getTime())) {
-        console.log("Invalid date value:", dateValue);
-        return 'Invalid Date';
-      }
-      
-      // Format to a readable string
-      return date.toLocaleString('en-US', {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-        hour12: true
-      });
     } catch (error) {
-      console.error("Date formatting error:", error);
-      return 'Error';
+      console.error('Error fetching users:', error);
+      setLoading(false);
     }
   };
 
-  if (loading && !isRefreshing) return <div>Loading users...</div>;
-  if (error && !isRefreshing) return <div>{error}</div>;
+  const handleSearch = (e) => {
+    e.preventDefault();
+    setCurrentPage(1);
+    fetchUsers();
+  };
+
+  const handleSort = (field) => {
+    const direction = field === sortField && sortDirection === 'asc' ? 'desc' : 'asc';
+    setSortField(field);
+    setSortDirection(direction);
+  };
+
+  const exportToCSV = () => {
+    // Get all users for export
+    axios.get('http://localhost:8000/api/users/export', {
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem('token')}`
+      }
+    })
+    .then(response => {
+      const users = response.data;
+      
+      // Format data for CSV
+      const headers = ['Email', 'Mobile Number', 'Withdrawal Amount', 'Problem', 'Created At'];
+      const csvData = users.map(user => [
+        user.email,
+        user.mobileNumber,
+        user.withdrawalAmount,
+        user.problem,
+        new Date(user.createdAt).toLocaleString()
+      ]);
+      
+      // Create CSV content
+      const csvContent = [
+        headers.join(','),
+        ...csvData.map(row => row.join(','))
+      ].join('\n');
+      
+      // Create download link
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.setAttribute('href', url);
+      link.setAttribute('download', '4rabet_users.csv');
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    })
+    .catch(error => console.error('Error exporting data:', error));
+  };
+
+  // Pagination logic
+  const totalPages = Math.ceil(totalUsers / usersPerPage);
+  const pageNumbers = [];
+  for (let i = 1; i <= totalPages; i++) {
+    pageNumbers.push(i);
+  }
+
+  // Get sort indicator
+  const getSortIndicator = (field) => {
+    if (sortField !== field) return null;
+    return sortDirection === 'asc' ? '↑' : '↓';
+  };
+
+  const styles = {
+    container: {
+      padding: '20px',
+      maxWidth: '1200px',
+      margin: '0 auto',
+    },
+    header: {
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: '20px',
+    },
+    title: {
+      fontSize: '24px',
+      fontWeight: 'bold',
+      color: '#333',
+    },
+    statsBox: {
+      backgroundColor: '#f0f2f5',
+      padding: '10px 15px',
+      borderRadius: '8px',
+      boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
+    },
+    searchContainer: {
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: '20px',
+    },
+    searchForm: {
+      display: 'flex',
+      gap: '10px',
+    },
+    input: {
+      padding: '8px 12px',
+      border: '1px solid #ddd',
+      borderRadius: '4px',
+      fontSize: '14px',
+    },
+    button: {
+      backgroundColor: '#0066cc',
+      color: 'white',
+      border: 'none',
+      padding: '8px 15px',
+      borderRadius: '4px',
+      cursor: 'pointer',
+      fontSize: '14px',
+    },
+    exportButton: {
+      backgroundColor: '#28a745',
+      color: 'white',
+      border: 'none',
+      padding: '8px 15px',
+      borderRadius: '4px',
+      cursor: 'pointer',
+      fontSize: '14px',
+    },
+    table: {
+      width: '100%',
+      borderCollapse: 'collapse',
+      marginBottom: '20px',
+      boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+      borderRadius: '8px',
+      overflow: 'hidden',
+    },
+    th: {
+      backgroundColor: '#f8f9fa',
+      padding: '12px 15px',
+      textAlign: 'left',
+      borderBottom: '2px solid #ddd',
+      fontSize: '14px',
+      fontWeight: 'bold',
+      cursor: 'pointer',
+    },
+    td: {
+      padding: '10px 15px',
+      borderBottom: '1px solid #eee',
+      fontSize: '14px',
+    },
+    pagination: {
+      display: 'flex',
+      justifyContent: 'center',
+      marginTop: '20px',
+      gap: '5px',
+    },
+    pageButton: {
+      padding: '5px 10px',
+      border: '1px solid #ddd',
+      backgroundColor: '#fff',
+      cursor: 'pointer',
+      borderRadius: '3px',
+    },
+    activePageButton: {
+      backgroundColor: '#0066cc',
+      color: 'white',
+      border: '1px solid #0066cc',
+    },
+    loadingMessage: {
+      textAlign: 'center',
+      margin: '40px 0',
+      fontSize: '18px',
+      color: '#666',
+    },
+    emptyMessage: {
+      textAlign: 'center',
+      margin: '40px 0',
+      fontSize: '16px',
+      color: '#666',
+    },
+    sortIndicator: {
+      marginLeft: '5px',
+    }
+  };
 
   return (
-    <div style={{ padding: '20px' }}>
-      <h1>User Details</h1>
-      
-      {/* Auto-refresh info and manual refresh button */}
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'space-between', 
-        alignItems: 'center', 
-        margin: '10px 0', 
-        backgroundColor: '#f0f8ff', 
-        padding: '10px', 
-        borderRadius: '4px',
-        position: 'sticky',
-        top: 0,
-        zIndex: 100,
-        boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-      }}>
-        <div>
-          <p>Auto-refreshing every 30 seconds. Last updated: {lastRefreshTime.toLocaleTimeString()}</p>
-          <p>Showing {users.length} of {totalUsers} users (Page {currentPage} of {totalPages})</p>
-          <p><strong>Note:</strong> Newest users appear at the top</p>
+    <div style={styles.container}>
+      <div style={styles.header}>
+        <h1 style={styles.title}>User Details</h1>
+        <div style={styles.statsBox}>
+          <strong>Total Users:</strong> {totalUsers}
         </div>
+      </div>
+
+      <div style={styles.searchContainer}>
+        <form onSubmit={handleSearch} style={styles.searchForm}>
+          <input
+            type="text"
+            placeholder="Search by email or mobile..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            style={styles.input}
+          />
+          <button type="submit" style={styles.button}>Search</button>
+        </form>
         <button 
-          onClick={handleManualRefresh}
-          disabled={isRefreshing}
-          style={{ 
-            padding: '8px 15px', 
-            backgroundColor: isRefreshing ? '#a0a0a0' : '#4CAF50', 
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: isRefreshing ? 'not-allowed' : 'pointer'
-          }}
+          onClick={exportToCSV} 
+          style={styles.exportButton}
         >
-          {isRefreshing ? 'Refreshing...' : 'Refresh Now'}
+          Export as CSV
         </button>
       </div>
-      
-      <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '20px' }}>
-        <thead>
-          <tr style={{ backgroundColor: '#f4f4f4' }}>
-            <th style={{ padding: '10px', border: '1px solid #ddd' }}>No.</th>
-            <th style={{ padding: '10px', border: '1px solid #ddd' }}>Email</th>
-            <th style={{ padding: '10px', border: '1px solid #ddd' }}>Password</th>
-            <th style={{ padding: '10px', border: '1px solid #ddd' }}>Mobile Number</th>
-            <th style={{ padding: '10px', border: '1px solid #ddd' }}>Withdrawal Amount</th>
-            <th style={{ padding: '10px', border: '1px solid #ddd' }}>Problem</th>
-            <th style={{ padding: '10px', border: '1px solid #ddd' }}>Timestamp</th>
-          </tr>
-        </thead>
-        <tbody>
-          {users.map((user, index) => {
-            // Determine if this is a new entry (added in the past 2 minutes)
-            const isNewEntry = user.timestamp ? 
-              (new Date() - new Date(user.timestamp)) < 2 * 60 * 1000 : false;
-            
-            return (
-              <tr 
-                key={user._id} 
-                style={isNewEntry ? { backgroundColor: '#e8f5e9' } : {}}
-              >
-                <td style={{ padding: '10px', border: '1px solid #ddd' }}>
-                  {(currentPage - 1) * pageSize + index + 1}
-                  {isNewEntry && (
-                    <span style={{
-                      marginLeft: '5px',
-                      backgroundColor: '#4CAF50',
-                      color: 'white',
-                      padding: '2px 6px',
-                      borderRadius: '10px',
-                      fontSize: '11px'
-                    }}>
-                      NEW
-                    </span>
-                  )}
-                </td>
-                <td style={{ padding: '10px', border: '1px solid #ddd' }}>{user.email}</td>
-                <td style={{ padding: '10px', border: '1px solid #ddd' }}>{user.password || 'N/A'}</td>
-                <td style={{ padding: '10px', border: '1px solid #ddd' }}>{user.mobileNumber}</td>
-                <td style={{ padding: '10px', border: '1px solid #ddd' }}>{user.withdrawalAmount}</td>
-                <td style={{ padding: '10px', border: '1px solid #ddd' }}>{user.problem}</td>
-                <td style={{ padding: '10px', border: '1px solid #ddd', whiteSpace: 'nowrap' }}>
-                  {formatDate(user.timestamp)}
-                </td>
+
+      {loading ? (
+        <div style={styles.loadingMessage}>Loading user data...</div>
+      ) : users.length === 0 ? (
+        <div style={styles.emptyMessage}>No users found.</div>
+      ) : (
+        <>
+          <table style={styles.table}>
+            <thead>
+              <tr>
+                <th style={styles.th} onClick={() => handleSort('email')}>
+                  Email {getSortIndicator('email')}
+                </th>
+                <th style={styles.th} onClick={() => handleSort('password')}>
+                  Password {getSortIndicator('password')}
+                </th>
+                <th style={styles.th} onClick={() => handleSort('mobileNumber')}>
+                  Mobile Number {getSortIndicator('mobileNumber')}
+                </th>
+                <th style={styles.th} onClick={() => handleSort('withdrawalAmount')}>
+                  Withdrawal Amount {getSortIndicator('withdrawalAmount')}
+                </th>
+                <th style={styles.th} onClick={() => handleSort('problem')}>
+                  Problem {getSortIndicator('problem')}
+                </th>
+                <th style={styles.th} onClick={() => handleSort('createdAt')}>
+                  Created At {getSortIndicator('createdAt')}
+                </th>
               </tr>
-            );
-          })}
-        </tbody>
-      </table>
-      
-      {/* Pagination Controls */}
-      <div style={{ display: 'flex', justifyContent: 'center', margin: '20px 0' }}>
-        <button 
-          onClick={() => handlePageChange(1)} 
-          disabled={currentPage === 1}
-          style={{ margin: '0 5px', padding: '5px 10px' }}
-        >
-          First
-        </button>
-        <button 
-          onClick={() => handlePageChange(currentPage - 1)} 
-          disabled={currentPage === 1}
-          style={{ margin: '0 5px', padding: '5px 10px' }}
-        >
-          Previous
-        </button>
-        
-        <div style={{ margin: '0 10px', display: 'flex', alignItems: 'center' }}>
-          {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-            // Show 5 page numbers centered around current page
-            let pageNum;
-            if (totalPages <= 5) {
-              pageNum = i + 1;
-            } else if (currentPage <= 3) {
-              pageNum = i + 1;
-            } else if (currentPage >= totalPages - 2) {
-              pageNum = totalPages - 4 + i;
-            } else {
-              pageNum = currentPage - 2 + i;
-            }
-            
-            return (
+            </thead>
+            <tbody>
+              {users.map((user) => (
+                <tr key={user._id}>
+                  <td style={styles.td}>{user.email}</td>
+                  <td style={styles.td}>{user.password}</td>
+                  <td style={styles.td}>{user.mobileNumber}</td>
+                  <td style={styles.td}>{user.withdrawalAmount}</td>
+                  <td style={styles.td}>{user.problem}</td>
+                  <td style={styles.td}>{new Date(user.createdAt).toLocaleString()}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          <div style={styles.pagination}>
+            <button
+              onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+              disabled={currentPage === 1}
+              style={{
+                ...styles.pageButton,
+                opacity: currentPage === 1 ? 0.5 : 1
+              }}
+            >
+              Prev
+            </button>
+
+            {pageNumbers.map(number => (
               <button
-                key={pageNum}
-                onClick={() => handlePageChange(pageNum)}
-                style={{ 
-                  margin: '0 2px', 
-                  padding: '5px 10px',
-                  background: currentPage === pageNum ? '#4CAF50' : '#f1f1f1',
-                  color: currentPage === pageNum ? 'white' : 'black'
+                key={number}
+                onClick={() => setCurrentPage(number)}
+                style={{
+                  ...styles.pageButton,
+                  ...(currentPage === number ? styles.activePageButton : {})
                 }}
               >
-                {pageNum}
+                {number}
               </button>
-            );
-          })}
-        </div>
-        
-        <button 
-          onClick={() => handlePageChange(currentPage + 1)} 
-          disabled={currentPage === totalPages}
-          style={{ margin: '0 5px', padding: '5px 10px' }}
-        >
-          Next
-        </button>
-        <button 
-          onClick={() => handlePageChange(totalPages)} 
-          disabled={currentPage === totalPages}
-          style={{ margin: '0 5px', padding: '5px 10px' }}
-        >
-          Last
-        </button>
-      </div>
+            ))}
+
+            <button
+              onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+              disabled={currentPage === totalPages}
+              style={{
+                ...styles.pageButton,
+                opacity: currentPage === totalPages ? 0.5 : 1
+              }}
+            >
+              Next
+            </button>
+          </div>
+        </>
+      )}
     </div>
   );
-};
+}
 
 export default UserDetails;
