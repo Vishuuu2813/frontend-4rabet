@@ -1,23 +1,24 @@
 import React from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+
 import Home from "./Home";
 import AdminDashboard from "./Admin/AdminDashboard";
 import Login from "./Auth/Login";
 import Register from "./Auth/Register";
 import ProtectedRoute from "./ProtectedRoute";
 import UserDetails from "./Admin/UserDetails";
-import NewUserDetails from "./Admin/NewUsersDetails";
 
 function App() {
   return (
     <Router>
       <Routes>
         <Route path="/" element={<Home />} />
+
         {/* Public Routes */}
         <Route path="/login" element={<Login />} />
-        <Route path="/registeradmins" element={<Register />} />
+        <Route path="/register" element={<Register />} />
         
-        {/* Protected Admin Routes */}
+        {/* Protected Admin Route */}
         <Route
           path="/admin"
           element={
@@ -26,22 +27,13 @@ function App() {
             </ProtectedRoute>
           }
         />
-        <Route 
+         <Route 
           path="/user-details" 
           element={
             <ProtectedRoute>
               <UserDetails />
             </ProtectedRoute>
-          }
-        />
-        <Route 
-          path="/new-user-details" 
-          element={
-            <ProtectedRoute>
-              <NewUserDetails/>
-            </ProtectedRoute>
-          }
-        />   
+          }/>
       </Routes>
     </Router>
   );
