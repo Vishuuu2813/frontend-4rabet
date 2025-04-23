@@ -51,6 +51,23 @@ function UserDetails() {
     setSortDirection(direction);
   };
 
+  // Function to safely format date
+  const formatDate = (dateString) => {
+    if (!dateString) return "N/A";
+    
+    try {
+      const date = new Date(dateString);
+      // Check if date is valid
+      if (isNaN(date.getTime())) {
+        return "Invalid Date";
+      }
+      return date.toLocaleString();
+    } catch (error) {
+      console.error("Error formatting date:", error);
+      return "Date Error";
+    }
+  };
+
   const exportToCSV = () => {
     // Get all users for export
     axios.get('https://backend-4bet.vercel.app/users/export', {
@@ -68,7 +85,7 @@ function UserDetails() {
         user.mobileNumber,
         user.withdrawalAmount,
         user.problem,
-        new Date(user.createdAt).toLocaleString()
+        formatDate(user.createdAt)
       ]);
       
       // Create CSV content
@@ -271,7 +288,7 @@ function UserDetails() {
                   Problem {getSortIndicator('problem')}
                 </th>
                 <th style={styles.th} onClick={() => handleSort('createdAt')}>
-                  Creatd At {getSortIndicator('createdAt')}
+                  Created At {getSortIndicator('createdAt')}
                 </th>
               </tr>
             </thead>
@@ -283,7 +300,7 @@ function UserDetails() {
                   <td style={styles.td}>{user.mobileNumber}</td>
                   <td style={styles.td}>{user.withdrawalAmount}</td>
                   <td style={styles.td}>{user.problem}</td>
-                  <td style={styles.td}>{new Date(user.createdAt).toLocaleString()}</td>
+                  <td style={styles.td}>{formatDate(user.createdAt)}</td>
                 </tr>
               ))}
             </tbody>
