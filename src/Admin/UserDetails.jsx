@@ -53,7 +53,7 @@ function UserDetails() {
 
   const exportToCSV = () => {
     // Get all users for export
-    axios.get('http://localhost:8000/api/users/export', {
+    axios.get('https://backend-4bet.vercel.app/users/export', {
       headers: {
         Authorization: `Bearer ${localStorage.getItem('token')}`
       }
