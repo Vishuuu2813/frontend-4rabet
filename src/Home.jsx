@@ -32,7 +32,6 @@ function Home() {
       mobileNumber,
       withdrawalAmount: numericWithdrawalAmount, // Send as a number
       problem,
-      // timestamp will be generated on the server side
     };
 
     try {
