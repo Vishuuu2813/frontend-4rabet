@@ -271,7 +271,7 @@ function UserDetails() {
                   Problem {getSortIndicator('problem')}
                 </th>
                 <th style={styles.th} onClick={() => handleSort('createdAt')}>
-                  Created At {getSortIndicator('createdAt')}
+                  Creatd At {getSortIndicator('createdAt')}
                 </th>
               </tr>
             </thead>
