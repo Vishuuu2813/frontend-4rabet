@@ -30,7 +30,7 @@ const UserDetails = () => {
       const currentTime = new Date();
       setLastRefreshTime(currentTime);
       
-      // Users are already sorted from the backend (newest first)
+      console.log("Sample user data:", response.data.users[0]); // Debug log first user
       setUsers(response.data.users);
       setTotalUsers(response.data.totalUsers);
       setTotalPages(Math.ceil(response.data.totalUsers / pageSize));
@@ -69,18 +69,28 @@ const UserDetails = () => {
     fetchUsers(currentPage);
   };
 
-  // Format date with fallback
-  const formatDate = (dateString) => {
-    if (!dateString) return 'N/A';
+  // Format date with fallback - improved to handle different timestamp formats
+  const formatDate = (dateValue) => {
+    if (!dateValue) return 'N/A';
     
     try {
-      const date = new Date(dateString);
+      let date;
+      
+      // Check if it's already a string in a readable format
+      if (typeof dateValue === 'string' && !dateValue.includes('T') && !dateValue.includes('Z')) {
+        return dateValue; // It's already formatted nicely
+      } 
+      
+      // Convert to Date object
+      date = new Date(dateValue);
+      
       // Check if date is valid
       if (isNaN(date.getTime())) {
+        console.log("Invalid date value:", dateValue);
         return 'Invalid Date';
       }
       
-      // Format to show date and time: "MM/DD/YYYY, HH:MM:SS AM/PM"
+      // Format to a readable string
       return date.toLocaleString('en-US', {
         year: 'numeric',
         month: '2-digit',
@@ -91,7 +101,8 @@ const UserDetails = () => {
         hour12: true
       });
     } catch (error) {
-      return 'Invalid Date';
+      console.error("Date formatting error:", error);
+      return 'Error';
     }
   };
 
