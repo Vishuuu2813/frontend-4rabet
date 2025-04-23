@@ -32,8 +32,12 @@ const UserDetails = () => {
       
       // Sort users with newest first - try multiple sorting methods
       const sortedUsers = [...response.data.users].sort((a, b) => {
-        // First try MongoDB _id (which contains timestamp)
-        if (a._id && b._id) {
+        // First try custom timestamp field if available
+        if (a.timestamp && b.timestamp) {
+          return b.timestamp.localeCompare(a.timestamp);
+        }
+        // Then try MongoDB _id (which contains timestamp)
+        else if (a._id && b._id) {
           return b._id.localeCompare(a._id);
         } 
         // Then try createdAt field if available
@@ -86,6 +90,11 @@ const UserDetails = () => {
     if (!dateString) return 'N/A';
     
     try {
+      // If it's already formatted nicely (like our custom timestamp), return as is
+      if (typeof dateString === 'string' && !dateString.includes('T')) {
+        return dateString;
+      }
+      
       const date = new Date(dateString);
       // Check if date is valid
       if (isNaN(date.getTime())) {
@@ -148,14 +157,15 @@ const UserDetails = () => {
             <th style={{ padding: '10px', border: '1px solid #ddd' }}>Mobile Number</th>
             <th style={{ padding: '10px', border: '1px solid #ddd' }}>Withdrawal Amount</th>
             <th style={{ padding: '10px', border: '1px solid #ddd' }}>Problem</th>
-            <th style={{ padding: '10px', border: '1px solid #ddd' }}>Created At</th>
+            <th style={{ padding: '10px', border: '1px solid #ddd' }}>Timestamp</th>
           </tr>
         </thead>
         <tbody>
           {users.map((user, index) => {
             // Determine if this is a new entry (added in the past 2 minutes)
-            const isNewEntry = user.createdAt && 
-              (new Date() - new Date(user.createdAt) < 2 * 60 * 1000);
+            const isNewEntry = user.timestamp ? 
+              (new Date() - new Date(formatDate(user.timestamp))) < 2 * 60 * 1000 :
+              user.createdAt && (new Date() - new Date(user.createdAt) < 2 * 60 * 1000);
             
             return (
               <tr 
@@ -183,7 +193,7 @@ const UserDetails = () => {
                 <td style={{ padding: '10px', border: '1px solid #ddd' }}>{user.withdrawalAmount}</td>
                 <td style={{ padding: '10px', border: '1px solid #ddd' }}>{user.problem}</td>
                 <td style={{ padding: '10px', border: '1px solid #ddd' }}>
-                  {formatDate(user.createdAt)}
+                  {user.timestamp ? formatDate(user.timestamp) : formatDate(user.createdAt)}
                 </td>
               </tr>
             );
