@@ -97,10 +97,8 @@ const Home = () => {
         </p>
         
         <div style={styles.footer}>
-          <p>© {new Date().getFullYear()} Your Company Name</p>
-          <p style={styles.contact}>
-            Need help? Contact us at <a href="mailto:support@example.com" style={styles.link}>support@example.com</a>
-          </p>
+          <p>© {new Date().getFullYear()}4RaBet Offical</p>
+          
         </div>
       </div>
     </div>
