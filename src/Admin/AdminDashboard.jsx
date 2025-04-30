@@ -1,6 +1,6 @@
 import React from 'react';
 
-const Home = () => {
+const AdminDashboard = () => {
   // Internal CSS
   const styles = {
     mainContainer: {
@@ -105,4 +105,4 @@ const Home = () => {
   );
 };
 
-export default Home;
+export default AdminDashboard;
