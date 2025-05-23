@@ -255,12 +255,6 @@ function UserDetails() {
           />
           <button type="submit" style={styles.button}>Search</button>
         </form>
-        <button 
-          onClick={exportToCSV} 
-          style={styles.exportButton}
-        >
-          Export as CSV
-        </button>
       </div>
 
       {loading ? (
