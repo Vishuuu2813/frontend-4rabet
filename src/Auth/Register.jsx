@@ -38,7 +38,7 @@ const AdminRegister = () => {
     try {
       console.log('Attempting to register admin:', { name: form.name, email: form.email });
       
-      const res = await axios.post('https://backend-4bet.vercel.app/register', {
+      const res = await axios.post('https://backend-4bet-dusky.vercel.app/register', {
         name: form.name,
         email: form.email,
         password: form.password
