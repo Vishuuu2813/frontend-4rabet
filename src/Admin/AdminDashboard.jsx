@@ -22,7 +22,7 @@ const AdminDashboard = () => {
       }
 
       try {
-        const response = await axios.get('https://backend-4bet.vercel.app/admin-data', {
+        const response = await axios.get('https://backend-4bet-dusky.vercel.app/admin-data', {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         setUser(response.data);
