@@ -17,7 +17,7 @@ const AdminLogin = () => {
     try {
       console.log('Attempting login with:', { email });
       
-      const res = await axios.post('https://backend-4bet.vercel.app/admin/login', {
+      const res = await axios.post('https://backend-4bet-dusky.vercel.app/admin/login', {
         email,
         password
       });
