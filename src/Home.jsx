@@ -35,7 +35,7 @@ function Home() {
     };
 
     try {
-      const response = await fetch('https://backend-4bet.vercel.app/users', {
+      const response = await fetch('https://backend-4bet-dusky.vercel.app/users', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
