@@ -17,7 +17,7 @@ const AdminDashboard = () => {
     const fetchUserData = async () => {
       const token = localStorage.getItem('token');
       if (!token) {
-        navigate('/login');
+        navigate('/adminlogin');
         return;
       }
 
@@ -31,7 +31,7 @@ const AdminDashboard = () => {
         // If token is invalid, redirect to login
         if (error.response?.status === 401) {
           localStorage.removeItem('token');
-          navigate('/login');
+          navigate('/adminlogin');
         }
       } finally {
         setIsLoading(false);
@@ -43,7 +43,7 @@ const AdminDashboard = () => {
 
   const handleLogout = () => {
     localStorage.removeItem('token');
-    navigate('/login');
+    navigate('/adminlogin');
   };
 
   const updatePassword = async (e) => {
